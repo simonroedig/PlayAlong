@@ -13,9 +13,12 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Stem separation runs in the browser: `src/lib/separation/` is a TypeScript port of `demucs.apply.apply_model`
   around an ONNX export of htdemucs_6s (STFT/iSTFT done in TS). Keep it numerically identical to PyTorch Demucs —
   change `spectrogram.ts` / `demucs.ts` only with a parity check against reference outputs.
+- Chord detection runs in a worker after separation (`src/lib/chords/`): BTC ONNX models (committed in
+  `public/models/btc_*.onnx`, rebuilt by `scripts/export_chord_models.py`) on a TS port of `librosa.cqt` — keep
+  `cqt.ts` in parity with librosa. Bump `CHORD_ANALYSIS_VERSION` when results change so stored songs are re-analysed.
 - The server only fetches YouTube audio (`src/lib/server/ytdlp.ts`); never pass user input to yt-dlp except a
   validated 11-character video id.
 - `scripts/setup.mjs` provides `public/ort/<version>/`, `public/models/htdemucs_6s.onnx` and `.bin/yt-dlp`
-  (all git-ignored).
+  (all git-ignored; the small chord models are committed).
 - Pages are cross-origin isolated (COOP/COEP in `next.config.ts`); anything loaded cross-origin must send CORP/CORS.
 - Checks: `npm run lint`, `npm run typecheck`, `npm test`.

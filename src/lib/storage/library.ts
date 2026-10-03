@@ -1,3 +1,5 @@
+import type { ChordAnalysis } from "../chords/analyze";
+import type { ChordView } from "../chords/sheet";
 import type { MixerSettings } from "../mixer";
 import type { Backend } from "../separation/protocol";
 
@@ -22,6 +24,10 @@ export interface SongRecord {
   frames?: number;
   separation?: { model: string; backend: Backend; seconds: number; finishedAt: number };
   mixer?: MixerSettings;
+  /** Detected chords, beats and key (re-detected when the version changes). */
+  chords?: ChordAnalysis;
+  /** Capo / tuning used to display this song's chords. */
+  chordView?: Pick<ChordView, "capo" | "tuneDown">;
 }
 
 const DB_NAME = "playalong";

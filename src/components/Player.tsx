@@ -2,13 +2,17 @@
 
 import { Download, Keyboard, Loader2, Zap, Cpu } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { ChordLane } from "@/components/player/ChordLane";
+import { ChordPanel } from "@/components/player/ChordPanel";
 import { Mixer } from "@/components/player/Mixer";
 import { PresetBar } from "@/components/player/PresetBar";
 import { Transport } from "@/components/player/Transport";
 import { Waveform } from "@/components/player/Waveform";
+import { useChords } from "@/hooks/useChords";
 import { PlayerEngine, type LoopRegion, type PlayerSnapshot } from "@/lib/audio/engine";
 import { mixToWav } from "@/lib/audio/wav";
 import { stemEnvelopes } from "@/lib/audio/waveform";
+import { DEFAULT_CHORD_VIEW, displayChords, type ChordView } from "@/lib/chords/sheet";
 import {
   applyPreset,
   defaultMixer,
@@ -26,6 +30,7 @@ import { formatTime } from "@/lib/songs";
 import { loadStems, updateSong, type SongRecord } from "@/lib/storage/library";
 
 const PRESET_KEY = "playalong:preset";
+const SIMPLE_CHORDS_KEY = "playalong:simple-chords";
 const idleSnapshot: PlayerSnapshot = { loaded: false, playing: false, duration: 0, rate: 1, loop: null };
 const noopSubscribe = () => () => {};
 
@@ -37,6 +42,16 @@ function preferredPreset(): PresetId {
     // storage blocked
   }
   return "no-guitar";
+}
+
+function initialChordView(song: SongRecord): ChordView {
+  let simple = DEFAULT_CHORD_VIEW.simple;
+  try {
+    simple = localStorage.getItem(SIMPLE_CHORDS_KEY) === "1";
+  } catch {
+    // storage blocked
+  }
+  return { ...DEFAULT_CHORD_VIEW, ...song.chordView, simple };
 }
 
 function saveFile(blob: Blob, name: string) {
@@ -72,6 +87,12 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
   const [rate, setRate] = useState(1);
   const [exporting, setExporting] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
+  const [chordView, setChordView] = useState<ChordView>(() => initialChordView(song));
+  const { state: chordState, reanalyze } = useChords(song, stems, frames);
+  const chords = useMemo(
+    () => (chordState.status === "ready" ? displayChords(chordState.analysis, chordView) : null),
+    [chordState, chordView],
+  );
 
   const gains = useMemo(() => effectiveGains(mixer), [mixer]);
   const preset = matchPreset(mixer);
@@ -124,6 +145,29 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
     }, 400);
     return () => clearTimeout(t);
   }, [mixer, song.id]);
+
+  const changeChordView = useCallback(
+    (view: ChordView) => {
+      setChordView(view);
+      void updateSong(song.id, { chordView: { capo: view.capo, tuneDown: view.tuneDown } });
+      try {
+        localStorage.setItem(SIMPLE_CHORDS_KEY, view.simple ? "1" : "0");
+      } catch {
+        // ignore
+      }
+    },
+    [song.id],
+  );
+
+  const loopRegion = useCallback(
+    (region: LoopRegion) => {
+      setLoop(region);
+      setLoopEnabled(true);
+      engine?.seek(region.start);
+    },
+    [engine],
+  );
+  const seek = useCallback((t: number) => engine?.seek(t), [engine]);
 
   const selectPreset = useCallback((id: PresetId) => setMixer((m) => applyPreset(m, id)), []);
   const toggleMute = useCallback(
@@ -255,13 +299,12 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
           duration={duration}
           loop={loop}
           loopEnabled={loopEnabled}
-          onSeek={(t) => engine?.seek(t)}
-          onLoopChange={(region) => {
-            setLoop(region);
-            setLoopEnabled(true);
-            engine?.seek(region.start);
-          }}
+          onSeek={seek}
+          onLoopChange={loopRegion}
         />
+        {chordState.status === "ready" && chords && (
+          <ChordLane engine={engine} analysis={chordState.analysis} chords={chords} duration={duration} onSeek={seek} />
+        )}
         <div className="mt-4">
           <Transport
             engine={engine}
@@ -284,6 +327,19 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
           <p className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-300">Audio output failed: {engineError}</p>
         )}
       </section>
+
+      <ChordPanel
+        engine={engine}
+        state={chordState}
+        chords={chords}
+        duration={duration}
+        view={chordView}
+        onViewChange={changeChordView}
+        loop={loop && loopEnabled ? loop : null}
+        onSeek={seek}
+        onLoop={loopRegion}
+        onReanalyze={reanalyze}
+      />
 
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
