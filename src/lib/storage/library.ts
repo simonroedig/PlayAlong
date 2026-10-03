@@ -1,5 +1,6 @@
 import type { ChordAnalysis } from "../chords/analyze";
 import type { ChordView } from "../chords/sheet";
+import type { LyricsAnalysis } from "../lyrics/transcribe";
 import type { MixerSettings } from "../mixer";
 import type { Backend } from "../separation/protocol";
 
@@ -28,6 +29,8 @@ export interface SongRecord {
   chords?: ChordAnalysis;
   /** Capo / tuning used to display this song's chords. */
   chordView?: Pick<ChordView, "capo" | "tuneDown">;
+  /** Lyrics transcribed from the vocal stem, with word timings. */
+  lyrics?: LyricsAnalysis;
 }
 
 const DB_NAME = "playalong";

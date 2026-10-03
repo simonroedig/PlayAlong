@@ -46,6 +46,8 @@ next-env.d.ts
 # the chord models are small enough to ship with the code
 !/public/models/btc_*.onnx
 /public/models/*.part
+/public/models/*.tar.bz2
+/public/models/whisper-*/
 /.bin/
 
 # server-side YouTube audio cache

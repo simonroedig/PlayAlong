@@ -9,6 +9,7 @@ import { PresetBar } from "@/components/player/PresetBar";
 import { Transport } from "@/components/player/Transport";
 import { Waveform } from "@/components/player/Waveform";
 import { useChords } from "@/hooks/useChords";
+import { useLyrics } from "@/hooks/useLyrics";
 import { PlayerEngine, type LoopRegion, type PlayerSnapshot } from "@/lib/audio/engine";
 import { mixToWav } from "@/lib/audio/wav";
 import { stemEnvelopes } from "@/lib/audio/waveform";
@@ -89,6 +90,8 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
   const [showKeys, setShowKeys] = useState(false);
   const [chordView, setChordView] = useState<ChordView>(() => initialChordView(song));
   const { state: chordState, reanalyze } = useChords(song, stems, frames);
+  // Lyrics wait for the chords, so the two analyses don't compete for the CPU.
+  const lyrics = useLyrics(song, stems, frames, chordState.status !== "running");
   const chords = useMemo(
     () => (chordState.status === "ready" ? displayChords(chordState.analysis, chordView) : null),
     [chordState, chordView],
@@ -339,6 +342,10 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
         onSeek={seek}
         onLoop={loopRegion}
         onReanalyze={reanalyze}
+        lyrics={lyrics.state}
+        lyricsAuto={lyrics.auto}
+        onLyricsAuto={lyrics.setAuto}
+        onTranscribe={lyrics.transcribe}
       />
 
       <section>

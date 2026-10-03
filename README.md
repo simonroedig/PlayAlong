@@ -11,6 +11,9 @@ completely and take over the part yourself.
 - **Chords:** detected automatically from the separated stems — a bar-by-bar chord chart that follows the music,
   the chord now and next with a beat counter, key, tempo and the recording's tuning (e.g. "tune to A = 432 Hz").
   Shows the shapes to play with a capo or a down-tuned guitar; simple (triads) or full (7ths, sus, slash chords).
+- **Lyrics:** transcribed from the separated vocals with Whisper (any of ~100 languages, detected per passage and line —
+  a German song with an English chorus works), word by word, shown with the chords above the words and highlighted as
+  they are sung, karaoke style.
 - **Practice tools:** drag across the waveform (or Shift+click bars in the chord chart) to loop a passage, slow it down
   to 50 % without changing the pitch, keyboard shortcuts for everything.
 - **Local-first:** separation runs on your GPU via WebGPU (CPU fallback via WebAssembly). Songs and stems are stored in
@@ -25,8 +28,11 @@ separation then uses WebGPU where the browser supports it, otherwise the CPU).
 
 ```bash
 npm install
-npm run dev        # first run downloads the model (~115 MB) and yt-dlp, then starts http://localhost:3000
+npm run dev        # first run downloads the models and yt-dlp (see below), then starts http://localhost:3000
 ```
+
+The first run downloads the separation model (~115 MB), the lyrics model (~560 MB download, 1 GB on disk) and yt-dlp
+into the project; later runs start right away. Set `PLAYALONG_SKIP_LYRICS_MODEL=1` to leave out the lyrics model.
 
 Open http://localhost:3000, paste a YouTube link, press **Separate**, and pick **No guitar** or **No bass**.
 
@@ -55,6 +61,11 @@ For a production build: `npm run build && npm start`.
                └─► per-beat chord probabilities → repeated passages vote → key → metre-aware Viterbi
                    (changes on beats, mostly on bar lines; bass-aware) → 7ths / sus / slash chords only
                    when clearly supported → chart with confidence → IndexedDB
+         └─► Web Worker: lyrics (after the chords; 1–4 min on the CPU)
+               vocal stem → 16 kHz → where the singing is (loudness gate) → ≤ 30 s windows
+               └─► Whisper large-v3 turbo (int8 ONNX): language per window → decoding with timestamp rules
+                   (+ temperature fallback) → word timestamps from cross-attention (DTW) → lines
+                   → second pass on sung parts that got no text → repeated lines made consistent → IndexedDB
 ```
 
 - **Separation model:** [Demucs v4](https://github.com/facebookresearch/demucs) `htdemucs_6s` (Hybrid Transformer
@@ -75,6 +86,16 @@ For a production build: `npm run build && npm start`.
   bass-note detection on the bass stem, repetition voting across verses and choruses, key estimation and a
   beat-synchronous Viterbi decoder. Chords appear a few seconds after the separation finishes and are stored with the
   song; songs separated earlier get their chords the next time they are opened.
+- **Lyrics** (`src/lib/lyrics/`): OpenAI's [Whisper](https://github.com/openai/whisper) large-v3 turbo (MIT) as int8
+  ONNX from [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx); `scripts/setup.mjs` downloads it and makes its decoder
+  also output the cross-attention weights, which word timestamps need. The rest is a TypeScript port of openai-whisper
+  (log-Mel features, timestamp rules, language detection, temperature fallback, DTW word alignment), verified against
+  the original (identical tokens; word times within 0.04 s), plus song-specific steps: Whisper only hears the sung
+  parts of the vocal stem (no invented text in guitar solos); the language is detected per window and each line is
+  checked for the language it is written in. Whisper takes one language per 30 s window and may skip or even translate
+  a line in a second language, so a second pass transcribes skipped lines, and the doubtful lines of mixed windows, on
+  their own with their own language. Line starts snap to the vocal onset, and choruses are made consistent by letting
+  the most confident rendition of each word win (unless a word was sung clearly, like a deliberate change).
 - **YouTube:** the browser cannot fetch YouTube media itself (CORS, signatures), so a small route handler runs
   [yt-dlp](https://github.com/yt-dlp/yt-dlp) (official standalone build, using this server's Node as the JavaScript
   runtime it now needs for YouTube). Only canonical watch URLs built from a validated video id are passed to it.
@@ -116,6 +137,16 @@ browser, MIT), CNN/CRNN models in madmom (good, but the pretrained weights are n
 CNN-LSTM and Conformer models from recent research (heavier, often without usable weights or licence), and classic
 chroma-template systems such as Chordino (no training data needed, noticeably less accurate).
 
+### Lyrics transcription
+
+| Option | Verdict |
+| --- | --- |
+| **Whisper large-v3 turbo** (809 M params, 100 languages) on the vocal stem | **Used.** Best open multilingual model that is robust to singing; its 4-layer decoder makes it faster than Whisper small on the CPU (4 s per 30 s window to encode, ~60 ms per token natively). int8 export: 1 GB. |
+| Whisper small / medium | Less accurate than the large-v3 family in OpenAI's published results; small (370 MB) was not even faster here (12 decoder layers: 150 ms per token vs 57 ms), medium is about as large as turbo with 24 decoder layers. |
+| transformers.js (Hugging Face) with Whisper | Mature, but it has no language detection yet (defaults to English) and needs the model from Hugging Face; the pipeline here runs on the app's own ONNX Runtime instead. |
+| Speech models (Parakeet, Canary, …) | Excellent on speech; not trained for singing. |
+| Lyrics databases (e.g. LRCLIB) | Human-verified text, but only for known songs and with copyright questions; a possible later add-on: align such lyrics to the audio with the same word-timing machinery. |
+
 ## Configuration
 
 All optional — set in `.env.local`:
@@ -130,7 +161,9 @@ All optional — set in `.env.local`:
 | `PLAYALONG_CACHE_DIR` | `.cache/youtube` | Server-side audio cache (last 40 downloads are kept). |
 | `NEXT_PUBLIC_MODEL_URL` | `/models/htdemucs_6s.onnx` | Load the model from a CDN instead (must send CORS headers). |
 | `NEXT_PUBLIC_MODEL_SHA256` | pinned hash of the default model | Checksum the browser verifies after downloading the model. |
-| `PLAYALONG_SKIP_DOWNLOADS` | – | `1` skips the model / yt-dlp downloads in `scripts/setup.mjs` (CI). |
+| `NEXT_PUBLIC_LYRICS_MODEL_URL` | `/models/whisper-turbo/` | Directory with the lyrics model (`model.json` + files written by setup), e.g. on a CDN. |
+| `PLAYALONG_SKIP_LYRICS_MODEL` | – | `1` skips the lyrics model in `scripts/setup.mjs` (lyrics then aren't available). |
+| `PLAYALONG_SKIP_DOWNLOADS` | – | `1` skips all model / yt-dlp downloads in `scripts/setup.mjs` (CI). |
 
 `npm run setup -- --update` updates yt-dlp (it also checks for updates weekly) — YouTube changes often, so this is the
 first thing to try when downloads start failing. Behind a corporate proxy, run setup with `NODE_USE_ENV_PROXY=1`.
@@ -169,6 +202,9 @@ src/app/                          pages (home, /song/[id]) and API routes (/api/
 src/components/                   UI (import box, library, processing view, player, mixer, waveform)
 src/lib/separation/               model contract, STFT/iSTFT, apply_model port, worker + client
 src/lib/chords/                   chord detection: CQT, beats, tuning, bass, decoding, chart helpers, worker + client
+src/lib/lyrics/                   lyrics: Whisper port (features, tokenizer, decoding, alignment), voice activity,
+                                  transcription, chorus consistency, lyrics + chords sheet, worker + client
+scripts/lib/onnx-proto.mjs        minimal ONNX protobuf editing for the setup script
 src/lib/onnx/runtime.ts           ONNX Runtime loading and model caching shared by both workers
 src/lib/audio/                    decoding, player engine, waveform envelopes, WAV export
 src/lib/storage/library.ts        IndexedDB song library
@@ -179,7 +215,7 @@ src/lib/server/ytdlp.ts           yt-dlp wrapper with progress + cache
 
 ```bash
 npm run dev         # dev server (Turbopack)
-npm test            # unit tests (Vitest): FFT, STFT/iSTFT, segmenting, mixer, URL parsing, AudioWorklet, chord pipeline
+npm test            # unit tests (Vitest): FFT, STFT/iSTFT, segmenting, mixer, URL parsing, AudioWorklet, chords, lyrics
 npm run lint        # ESLint
 npm run typecheck   # TypeScript
 ```
@@ -217,6 +253,17 @@ npm run typecheck   # TypeScript
 - **Browser end-to-end** (chords): after the separation, chords were ready in 5–8 s for 1.5-minute songs (CPU,
   headless Chromium), matched the Node results, and the chart, now/next display, capo and tuning transposition,
   bar-click seeking, Shift+click looping and reloading from the library were exercised.
+- **Lyrics:** the TypeScript Whisper pipeline matches openai-whisper run on the same ONNX models (identical tokens and
+  language probabilities, word times within 0.04 s; log-Mel within 1·10⁻⁵). Test songs with known lyrics (synthetic
+  speech-like vocals over the instrumental of the chord test songs, separated by Demucs; ONNX Runtime Web as in the
+  browser): German 0 % word error rate, English 0 %, German verses with an English chorus 3 % ("kalten Sand" written
+  as one word; every line labelled with its own language — without the per-line check, one English chorus line came
+  out translated into German), German with vocals 6 dB quieter 4 %; line starts within 0.02–0.04 s. On a real song with
+  sung vocals ("Let's Go Fishin'", Karissa Hobbs, CC BY) the transcription reads cleanly and both choruses come out
+  identical; there are no annotated real recordings in the build environment, so real-world error rates are not
+  measured. In headless Chromium (WebAssembly, 4 CPU threads) the 2:13 song took 3.5 minutes after the 1 GB model had
+  loaded, the 1:35 German/English song 2.2 minutes; the chord chart's auto-scroll, the lyrics view, seeking, looping
+  and reloading from the library were exercised.
 - **YouTube route:** exercised with a stand-in yt-dlp process, since the build sandbox has no access to YouTube:
   progress streaming, caching, error messages (unavailable video, bot check, too long), Opus/AAC format negotiation
   and the browser flow from pasted link to player. The real yt-dlp 2026.08.19 binary was checked against the exact
@@ -235,6 +282,11 @@ npm run typecheck   # TypeScript
 - Chord detection is a starting point, not a verified chord sheet: it simplifies (e.g. add9 becomes a triad), snaps
   chords to beats, may label inversions or power chords (no third) differently than a transcriber, and fast tempos
   without drums can be counted at double speed. Grey chords are the ones it is unsure about.
+- Lyrics transcription needs about 3 GB of free memory and takes a few minutes on the CPU (WebGPU can't run the int8
+  model). Whisper can mishear sung words — unsure words are underlined, and you can transcribe again with the language
+  set by hand. Lines are checked for their language by their words for English, German, Spanish, French, Italian,
+  Portuguese and Dutch, and by script for others; a line that mixes two languages keeps its window's language.
+  Transcribed lyrics stay in your browser.
 - Download only content you have the right to use. The Demucs code is MIT licensed; the pretrained weights were
   published by Meta for research use — check their terms before any commercial use. The BTC chord models are MIT
-  licensed (see `public/models/BTC-LICENSE.txt`).
+  licensed (see `public/models/BTC-LICENSE.txt`); Whisper is MIT licensed, the sherpa-onnx export Apache-2.0.

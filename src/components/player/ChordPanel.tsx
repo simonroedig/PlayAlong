@@ -1,9 +1,12 @@
 "use client";
 
-import { ListMusic, Minus, Plus, RotateCcw, TriangleAlert } from "lucide-react";
-import { memo, useEffect, useMemo, useRef } from "react";
+import { ListMusic, Loader2, Minus, MoveDown, Plus, RotateCcw, TriangleAlert } from "lucide-react";
+import { memo, useMemo, useRef, useState } from "react";
+import { LyricsView } from "@/components/player/LyricsView";
 import type { ChordState } from "@/hooks/useChords";
+import type { LyricsState } from "@/hooks/useLyrics";
 import { useChordPlayhead } from "@/hooks/useChordPlayhead";
+import { readFollowPreference, useFollowScroll, writeFollowPreference } from "@/hooks/useFollowScroll";
 import type { LoopRegion, PlayerEngine } from "@/lib/audio/engine";
 import type { ChordAnalysis } from "@/lib/chords/analyze";
 import type { ChordPhase } from "@/lib/chords/protocol";
@@ -31,6 +34,21 @@ interface Props {
   onSeek: (seconds: number) => void;
   onLoop: (region: LoopRegion) => void;
   onReanalyze: () => void;
+  lyrics: LyricsState;
+  lyricsAuto: boolean;
+  onLyricsAuto: (auto: boolean) => void;
+  onTranscribe: (language: string | null) => void;
+}
+
+type Tab = "chart" | "lyrics";
+const TAB_KEY = "playalong:sheet-tab";
+
+function readTab(): Tab {
+  try {
+    return localStorage.getItem(TAB_KEY) === "lyrics" ? "lyrics" : "chart";
+  } catch {
+    return "chart";
+  }
 }
 
 const PHASES: Record<ChordPhase, { label: string; from: number; to: number }> = {
@@ -47,8 +65,8 @@ const TUNINGS = [
 ];
 
 /**
- * Play-along chord display: the chord now and next with a beat counter,
- * and the whole song as a bar chart that follows the playhead.
+ * Play-along display: the chord now and next with a beat counter, and the
+ * whole song as a bar chart or as lyrics with chords, following the playhead.
  */
 export function ChordPanel(props: Props) {
   const { state } = props;
@@ -73,6 +91,21 @@ export function ChordPanel(props: Props) {
               </button>
             </div>
           )}
+          {state.status === "error" && (
+            <LyricsView
+              engine={props.engine}
+              state={props.lyrics}
+              chords={null}
+              currentChord={-1}
+              duration={props.duration}
+              follow
+              auto={props.lyricsAuto}
+              onAuto={props.onLyricsAuto}
+              onTranscribe={props.onTranscribe}
+              onSeek={props.onSeek}
+              onLoop={props.onLoop}
+            />
+          )}
         </>
       )}
     </section>
@@ -83,7 +116,7 @@ function Header({ children }: { children?: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="flex items-center gap-2 text-base font-semibold text-zinc-200">
-        <ListMusic className="size-4 text-zinc-400" /> Chords
+        <ListMusic className="size-4 text-zinc-400" /> Chords &amp; lyrics
       </h2>
       {children}
     </div>
@@ -120,6 +153,10 @@ function ChordChart({
   onSeek,
   onLoop,
   onReanalyze,
+  lyrics,
+  lyricsAuto,
+  onLyricsAuto,
+  onTranscribe,
 }: Props & { analysis: ChordAnalysis; chords: DisplayChord[] }) {
   const position = useChordPlayhead(engine, analysis, chords);
   const bars = useMemo(() => chordBars(analysis, chords, duration), [analysis, chords, duration]);
@@ -129,6 +166,22 @@ function ChordChart({
   const next = position.chord + 1 < chords.length ? chords[position.chord + 1] : null;
   const beatsToNext = next && position.beat >= 0 ? next.startBeat - position.beat : null;
   const beatNow = position.beat >= 0 ? beatInBar(analysis, position.beat) : -1;
+
+  const [follow, setFollow] = useState(readFollowPreference);
+  const toggleFollow = () =>
+    setFollow((f) => {
+      writeFollowPreference(!f);
+      return !f;
+    });
+  const [tab, setTabState] = useState<Tab>(readTab);
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    try {
+      localStorage.setItem(TAB_KEY, t);
+    } catch {
+      // storage blocked
+    }
+  };
 
   const shift = shapeShift(view);
   const soundingKey = analysis.key ? keyName(analysis.key) : null;
@@ -215,24 +268,71 @@ function ChordChart({
         bar={currentBar >= 0 ? bars[currentBar].number : null}
       />
 
-      <ChordSheet
-        bars={bars}
-        currentBar={currentBar}
-        currentChord={position.chord}
-        loop={loop}
-        onSeek={onSeek}
-        onLoop={onLoop}
-      />
-
-      <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-        <span>
-          Detected automatically — <span className="text-zinc-400 italic">grey italic</span> chords are uncertain. Click a bar to
-          jump there, Shift+click another bar to loop the passage.
-        </span>
-        <button type="button" onClick={onReanalyze} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-white/5 hover:text-zinc-300">
-          <RotateCcw className="size-3" /> Detect again
-        </button>
-      </p>
+      <div className="mt-4 flex items-center justify-between gap-2">
+        <div role="tablist" aria-label="Show" className="flex rounded-xl bg-white/5 p-0.5 text-xs font-medium">
+          {(
+            [
+              ["chart", "Chart"],
+              ["lyrics", "Lyrics"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1 transition ${
+                tab === id ? "bg-zinc-100 text-ink-950" : "text-zinc-400 hover:text-zinc-100"
+              }`}
+            >
+              {label}
+              {id === "lyrics" && lyrics.status === "running" && <Loader2 className="size-3 animate-spin" />}
+            </button>
+          ))}
+        </div>
+        <FollowToggle follow={follow} onToggle={toggleFollow} />
+      </div>
+      {tab === "chart" ? (
+        <>
+          <ChordSheet
+            bars={bars}
+            currentBar={currentBar}
+            currentChord={position.chord}
+            follow={follow}
+            loop={loop}
+            onSeek={onSeek}
+            onLoop={onLoop}
+          />
+          <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+            <span>
+              Detected automatically — <span className="text-zinc-400 italic">grey italic</span> chords are uncertain. Click a bar
+              to jump there, Shift+click another bar to loop the passage.
+            </span>
+            <button
+              type="button"
+              onClick={onReanalyze}
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-white/5 hover:text-zinc-300"
+            >
+              <RotateCcw className="size-3" /> Detect again
+            </button>
+          </p>
+        </>
+      ) : (
+        <LyricsView
+          engine={engine}
+          state={lyrics}
+          chords={chords}
+          currentChord={position.chord}
+          duration={duration}
+          follow={follow}
+          auto={lyricsAuto}
+          onAuto={onLyricsAuto}
+          onTranscribe={onTranscribe}
+          onSeek={onSeek}
+          onLoop={onLoop}
+        />
+      )}
     </>
   );
 }
@@ -252,6 +352,27 @@ function upperIndex(starts: number[], beat: number): number {
     }
   }
   return found;
+}
+
+export function FollowToggle({ follow, onToggle }: { follow: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={follow}
+      onClick={onToggle}
+      title={follow ? "The chart scrolls along with the music — click to stop" : "Scroll the chart along with the music"}
+      className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition ${
+        follow ? "bg-white/10 text-zinc-100" : "text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+      }`}
+    >
+      <MoveDown className="size-3.5" />
+      Follow
+      <span className={`h-3.5 w-6 rounded-full p-0.5 transition ${follow ? "bg-guitar" : "bg-white/15"}`} aria-hidden>
+        <span className={`block size-2.5 rounded-full bg-white transition ${follow ? "translate-x-2.5" : ""}`} />
+      </span>
+    </button>
+  );
 }
 
 function StepButton({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
@@ -327,6 +448,7 @@ const ChordSheet = memo(function ChordSheet({
   bars,
   currentBar,
   currentChord,
+  follow,
   loop,
   onSeek,
   onLoop,
@@ -334,36 +456,20 @@ const ChordSheet = memo(function ChordSheet({
   bars: Bar[];
   currentBar: number;
   currentChord: number;
+  follow: boolean;
   loop: LoopRegion | null;
   onSeek: (seconds: number) => void;
   onLoop: (region: LoopRegion) => void;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const userScrollAt = useRef(0);
   const anchor = useRef<number | null>(null);
-
-  // Keep the current bar in view, unless the user is scrolling around.
-  useEffect(() => {
-    const box = scrollRef.current;
-    if (!box || currentBar < 0 || performance.now() - userScrollAt.current < 4000) return;
-    const el = box.querySelector<HTMLElement>(`[data-bar="${currentBar}"]`);
-    if (!el) return;
-    const top = el.offsetTop - box.offsetTop;
-    if (top < box.scrollTop + 8 || top + el.offsetHeight > box.scrollTop + box.clientHeight - 8) {
-      box.scrollTo({ top: Math.max(0, top - box.clientHeight / 3), behavior: "smooth" });
-    }
-  }, [currentBar]);
-
-  const markUserScroll = () => {
-    userScrollAt.current = performance.now();
-  };
+  const { ref, onUserScroll } = useFollowScroll<HTMLDivElement>(follow, currentBar >= 0 ? `[data-bar="${currentBar}"]` : null);
 
   return (
     <div
-      ref={scrollRef}
-      onWheel={markUserScroll}
-      onTouchMove={markUserScroll}
-      className="relative mt-4 max-h-[19rem] overflow-y-auto rounded-2xl border border-white/5 bg-black/20 p-1.5"
+      ref={ref}
+      onWheel={onUserScroll}
+      onTouchMove={onUserScroll}
+      className="relative mt-2 max-h-[19rem] overflow-y-auto rounded-2xl border border-white/5 bg-black/20 p-1.5"
     >
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
         {bars.map((bar, i) => {
