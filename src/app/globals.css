@@ -38,14 +38,77 @@
 body {
   background-color: var(--color-ink-950);
   background-image:
-    radial-gradient(1200px 600px at 10% -10%, rgb(251 146 60 / 0.08), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgb(167 139 250 / 0.09), transparent 60%);
+    radial-gradient(1100px 520px at 50% -12%, rgb(255 255 255 / 0.065), transparent 70%),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.015), transparent 420px);
   background-repeat: no-repeat;
   color: var(--color-zinc-100);
 }
 
 ::selection {
-  background: rgb(251 146 60 / 0.35);
+  background: rgb(255 255 255 / 0.22);
+}
+
+/* Everything you can click shows the hand cursor (Tailwind 4 leaves buttons at the default arrow). */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="switch"],
+  [role="radio"],
+  [role="checkbox"],
+  summary,
+  select:not(:disabled),
+  label:has(> input[type="checkbox"]:not(:disabled)),
+  label:has(> input[type="file"]),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+}
+
+/* The stem colours as a thin segmented line (logo motif, headline underline). */
+.stem-rule {
+  display: flex;
+  gap: 4px;
+}
+.stem-rule > span {
+  height: 100%;
+  flex: 1;
+  border-radius: 999px;
+}
+
+@keyframes playhead {
+  from {
+    left: 0%;
+  }
+  to {
+    left: 100%;
+  }
+}
+/* Landing demo: one word / chord lights up at its moment of a 12 s loop (delay = its time). */
+@keyframes sheet-word {
+  0%,
+  9% {
+    color: var(--color-zinc-50);
+  }
+  10%,
+  100% {
+    color: var(--color-zinc-500);
+  }
+}
+@keyframes sheet-chord {
+  0%,
+  14% {
+    color: var(--color-guitar);
+  }
+  15%,
+  100% {
+    color: var(--color-zinc-300);
+  }
 }
 
 /* Range inputs: thin track, round thumb, colour from --accent. */

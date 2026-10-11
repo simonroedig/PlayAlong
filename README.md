@@ -6,7 +6,8 @@ PlayAlong downloads a song's audio, splits it into six instrument stems — guit
 "other" — **inside your browser**, and gives you a practice player where you can remove the guitar or the bass
 completely and take over the part yourself.
 
-- **One-click practice modes:** _No guitar_, _No bass_, _Full mix_, _Guitar only_, _Bass only_ (to learn a part).
+- **One-click practice modes:** _Full mix_, guitar _without / only_, bass _without / only_, plus a **Vocals** switch that
+  works on top of any mode.
 - **Six-stem mixer:** mute, solo and volume per instrument, with live level meters.
 - **Chords:** detected automatically from the separated stems — a bar-by-bar chord chart that follows the music,
   the chord now and next with a beat counter, key, tempo and the recording's tuning (e.g. "tune to A = 432 Hz").
@@ -18,6 +19,10 @@ completely and take over the part yourself.
   to 50 % without changing the pitch, keyboard shortcuts for everything.
 - **Local-first:** separation runs on your GPU via WebGPU (CPU fallback via WebAssembly). Songs and stems are stored in
   your browser (IndexedDB) and open instantly next time. Nothing is uploaded anywhere.
+- **Your songs in a folder:** in Chrome and Edge, "Save to a folder" (top right) keeps every song as one `.playalong`
+  file (original audio, stems as Opus, chords, lyrics, capo) in a folder you pick. Put that folder in OneDrive, Dropbox
+  or iCloud Drive and songs separated on one computer open in seconds on another. The browser library stays the
+  working copy; the folder is written after each change and read on start (and when you come back to the tab).
 - **Export:** download the current mix (e.g. your backing track) or any single stem as WAV.
 - Works with local audio files too (MP3, M4A, WAV, FLAC, OGG…).
 
@@ -34,7 +39,7 @@ npm run dev        # first run downloads the models and yt-dlp (see below), then
 The first run downloads the separation model (~115 MB), the lyrics model (~560 MB download, 1 GB on disk) and yt-dlp
 into the project; later runs start right away. Set `PLAYALONG_SKIP_LYRICS_MODEL=1` to leave out the lyrics model.
 
-Open http://localhost:3000, paste a YouTube link, press **Separate**, and pick **No guitar** or **No bass**.
+Open http://localhost:3000, paste a YouTube link (or drop an audio file), and pick guitar or bass **Without**.
 
 For a production build: `npm run build && npm start`.
 
@@ -185,7 +190,8 @@ python scripts/export_model.py     # writes public/models/htdemucs_6s.onnx and i
 | `Space` | Play / pause |
 | `←` / `→` | Skip 5 s (`Shift`: 1 s) |
 | `Home` | Back to start (or loop start) |
-| `1`–`5` | No guitar · No bass · Full mix · Guitar only · Bass only |
+| `1` to `5` | Full mix · No guitar · Guitar only · No bass · Bass only |
+| `V` | Vocals on / off |
 | `G` / `B` | Mute / unmute guitar / bass |
 | `L` | Loop on/off (creates an 8 s loop at the playhead if none) |
 | `[` / `]` | Set loop start / end at the playhead |
@@ -207,7 +213,9 @@ src/lib/lyrics/                   lyrics: Whisper port (features, tokenizer, dec
 scripts/lib/onnx-proto.mjs        minimal ONNX protobuf editing for the setup script
 src/lib/onnx/runtime.ts           ONNX Runtime loading and model caching shared by both workers
 src/lib/audio/                    decoding, player engine, waveform envelopes, WAV export
-src/lib/storage/library.ts        IndexedDB song library
+src/lib/storage/library.ts        IndexedDB song library (with change events)
+src/lib/storage/songFile.ts       the .playalong file format; stemCodec.ts: stems as Opus (WebCodecs)
+src/lib/storage/folder.ts         folder sync (File System Access API)
 src/lib/server/ytdlp.ts           yt-dlp wrapper with progress + cache
 ```
 

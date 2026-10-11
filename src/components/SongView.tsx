@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ExternalLink, RotateCcw, TriangleAlert } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2, RotateCcw, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Player } from "@/components/Player";
@@ -9,11 +9,13 @@ import { Thumbnail } from "@/components/Thumbnail";
 import { prepareSong, type PipelineState } from "@/lib/pipeline";
 import { SOURCES } from "@/lib/separation/model";
 import { formatTime, parseSongId } from "@/lib/songs";
+import { folderEntries, folderScanned, importFromFolder } from "@/lib/storage/folder";
 import { getSong, loadStems, requestPersistence, type SongRecord } from "@/lib/storage/library";
 import { youTubeWatchUrl } from "@/lib/youtube";
 
 type View =
   | { kind: "loading" }
+  | { kind: "importing"; text: string }
   | { kind: "processing"; state: PipelineState | null; startedAt: number }
   | { kind: "ready"; stems: Int16Array[] }
   | { kind: "error"; message: string }
@@ -32,8 +34,18 @@ export function SongView({ id }: { id: string }) {
     const { signal } = controller;
     const run = async () => {
       if (!parseSongId(id)) throw new Error("This song link is not valid.");
-      const existing = await getSong(id);
+      let existing = await getSong(id);
       if (signal.aborted) return;
+      if (existing?.status !== "ready") {
+        // Separated on another computer? Then it's in the PlayAlong folder.
+        await folderScanned();
+        if (folderEntries().has(id)) {
+          setView({ kind: "importing", text: "Opening the song from your folder" });
+          const imported = await importFromFolder(id, (text) => !signal.aborted && setView({ kind: "importing", text }));
+          if (signal.aborted) return;
+          if (imported) existing = imported;
+        }
+      }
       if (existing) setSong(existing);
       if (existing?.status === "ready") {
         const stems = await loadStems(id, SOURCES.length);
@@ -112,6 +124,13 @@ export function SongView({ id }: { id: string }) {
 
       <div className="mt-8">
         {view.kind === "loading" && <div className="h-64 animate-pulse rounded-3xl bg-white/[0.03]" />}
+
+        {view.kind === "importing" && (
+          <div className="flex items-center gap-3 rounded-3xl border border-white/10 bg-ink-900/70 p-6 text-sm text-zinc-300" aria-live="polite">
+            <Loader2 className="size-5 animate-spin text-zinc-400" />
+            {view.text}
+          </div>
+        )}
 
         {view.kind === "processing" && (
           <ProcessingPanel

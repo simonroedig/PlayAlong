@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applyPreset, defaultMixer, effectiveGains, matchPreset, normalizeMixer, stemIndex } from "./mixer";
+import { applyPreset, defaultMixer, effectiveGains, matchPreset, normalizeMixer, setVocals, stemIndex, vocalsOn } from "./mixer";
 
 const g = stemIndex("guitar");
 const b = stemIndex("bass");
+const v = stemIndex("vocals");
 
 describe("mixer", () => {
   it("full mix plays everything at unity", () => {
@@ -19,7 +20,7 @@ describe("mixer", () => {
   });
 
   it("'Bass only' solos the bass and keeps its volume", () => {
-    const m = applyPreset({ ...defaultMixer(), volumes: [1, 0.5, 1, 1, 1, 1] }, "bass-only");
+    const m = applyPreset({ ...defaultMixer(), volumes: [1, 0.5, 1, 1, 1, 1] }, "bass-only", false);
     const gains = effectiveGains(m);
     expect(gains[b]).toBe(0.5);
     expect(gains.reduce((a, v) => a + v, 0)).toBe(0.5);
@@ -35,6 +36,21 @@ describe("mixer", () => {
     const m = applyPreset(defaultMixer(), "no-guitar");
     m.muted[b] = true;
     expect(matchPreset(m)).toBeNull();
+  });
+
+  it("switches the vocals on top of any practice mode", () => {
+    const noGuitar = setVocals(applyPreset(defaultMixer(), "no-guitar"), false);
+    expect(effectiveGains(noGuitar)[v]).toBe(0);
+    expect(effectiveGains(noGuitar)[g]).toBe(0);
+    expect(matchPreset(noGuitar)).toBe("no-guitar");
+    // the switch survives a change of mode
+    const bassOnly = applyPreset(noGuitar, "bass-only");
+    expect(vocalsOn(bassOnly)).toBe(false);
+    expect(effectiveGains(bassOnly).filter((x) => x > 0)).toHaveLength(1);
+    const withVoice = setVocals(bassOnly, true);
+    expect(effectiveGains(withVoice)[v]).toBe(1);
+    expect(effectiveGains(withVoice)[b]).toBe(1);
+    expect(matchPreset(withVoice)).toBe("bass-only");
   });
 
   it("recovers from missing or malformed stored settings", () => {

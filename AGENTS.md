@@ -19,6 +19,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Lyrics (`src/lib/lyrics/`) are a TypeScript port of openai-whisper (features, decoding rules, DTW word alignment)
   around sherpa-onnx's int8 Whisper turbo; `scripts/setup.mjs` installs it into `public/models/whisper-turbo/` and
   patches the decoder to output cross-attention. Bump `LYRICS_VERSION` when results change.
+- Songs can be mirrored to a user-chosen folder as `.playalong` files (`src/lib/storage/songFile.ts`, `folder.ts`);
+  keep old files readable and bump `SONG_FILE_FORMAT` when the layout changes.
 - The server only fetches YouTube audio (`src/lib/server/ytdlp.ts`); never pass user input to yt-dlp except a
   validated 11-character video id.
 - `scripts/setup.mjs` provides `public/ort/<version>/`, `public/models/htdemucs_6s.onnx`,

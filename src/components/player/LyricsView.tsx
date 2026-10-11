@@ -268,7 +268,7 @@ const SheetRow = memo(function SheetRow({
               className={`${
                 active ? (k === word ? "text-guitar" : k < word ? "text-zinc-100" : "text-zinc-300") : past ? "text-zinc-500" : "text-zinc-300"
               } ${w.uncertain ? "underline decoration-zinc-600 decoration-dotted underline-offset-4" : ""}`}
-              title={w.uncertain ? "Unsure — check by ear" : undefined}
+              title={w.uncertain ? "Unsure, check by ear" : undefined}
             >
               {w.text}
             </span>

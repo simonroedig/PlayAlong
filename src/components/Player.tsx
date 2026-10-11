@@ -21,10 +21,12 @@ import {
   matchPreset,
   normalizeMixer,
   PRESETS,
+  setVocals,
   STEM_INFO,
   stemIndex,
   type MixerSettings,
   type PresetId,
+  vocalsOn,
 } from "@/lib/mixer";
 import { MODEL_LABEL, SAMPLE_RATE, SOURCES } from "@/lib/separation/model";
 import { formatTime } from "@/lib/songs";
@@ -173,6 +175,7 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
   const seek = useCallback((t: number) => engine?.seek(t), [engine]);
 
   const selectPreset = useCallback((id: PresetId) => setMixer((m) => applyPreset(m, id)), []);
+  const switchVocals = useCallback((on?: boolean) => setMixer((m) => setVocals(m, on ?? !vocalsOn(m))), []);
   const toggleMute = useCallback(
     (index: number) =>
       setMixer((m) => {
@@ -242,6 +245,10 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
           case "B":
             toggleMute(stemIndex("bass"));
             return true;
+          case "v":
+          case "V":
+            switchVocals();
+            return true;
           case "-":
             setRate((r) => Math.max(0.5, Math.round((r - 0.05) * 100) / 100));
             return true;
@@ -271,7 +278,7 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [engine, loop, loopEnabled, toggleLoop, setLoopEdge, toggleMute, selectPreset]);
+  }, [engine, loop, loopEnabled, toggleLoop, setLoopEdge, toggleMute, selectPreset, switchVocals]);
 
   const download = async (which: "mix" | number) => {
     setExporting(true);
@@ -292,7 +299,7 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
 
   return (
     <div className="space-y-5">
-      <PresetBar active={preset} onSelect={selectPreset} />
+      <PresetBar active={preset} vocals={vocalsOn(mixer)} onSelect={selectPreset} onVocals={switchVocals} />
 
       <section className="rounded-3xl border border-white/10 bg-ink-900/70 p-4 sm:p-5">
         <Waveform
@@ -381,8 +388,9 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
               ["Space", "Play / pause"],
               ["← / →", "Skip 5 s (Shift: 1 s)"],
               ["Home", "Back to start / loop start"],
-              ["1 – 5", "Practice modes"],
+              ["1 to 5", "Practice modes"],
               ["G / B", "Mute guitar / bass"],
+              ["V", "Vocals on / off"],
               ["L", "Loop on / off"],
               ["[ / ]", "Set loop start / end"],
               ["− / +", "Slower / faster"],

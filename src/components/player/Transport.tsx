@@ -69,7 +69,7 @@ export function Transport(props: Props) {
             type="button"
             onClick={props.onToggleLoop}
             disabled={!engine}
-            title={loop ? "Toggle loop (L)" : "Loop the next 8 seconds (L) — or drag across the waveform"}
+            title={loop ? "Toggle loop (L)" : "Loop the next 8 seconds (L), or drag across the waveform"}
             className={`inline-flex h-9 items-center gap-2 rounded-xl px-3 text-sm font-medium transition ${
               loop && loopEnabled
                 ? "bg-zinc-100 text-ink-950"
@@ -79,7 +79,7 @@ export function Transport(props: Props) {
             <Repeat className="size-4" />
             {loop ? (
               <span className="font-mono text-xs tabular-nums">
-                {formatTime(loop.start, true)}–{formatTime(loop.end, true)}
+                {formatTime(loop.start, true)} → {formatTime(loop.end, true)}
               </span>
             ) : (
               "Loop"
@@ -92,7 +92,7 @@ export function Transport(props: Props) {
           )}
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-zinc-400" title="Practice tempo — pitch stays the same">
+        <label className="flex items-center gap-2 text-sm text-zinc-400" title="Practice tempo (the pitch stays the same)">
           <Turtle className="size-4" />
           <input
             type="range"

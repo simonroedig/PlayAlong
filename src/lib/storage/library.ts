@@ -19,6 +19,8 @@ export interface SongRecord {
   /** Seconds (from metadata until decoded, then exact). */
   duration: number | null;
   createdAt: number;
+  /** Last change worth syncing (everything except the mixer). */
+  updatedAt?: number;
   status: "pending" | "ready";
   hasThumbnail: boolean;
   /** Present once separated. */
@@ -37,6 +39,30 @@ const DB_NAME = "playalong";
 const DB_VERSION = 1;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+
+export interface LibraryChange {
+  id: string;
+  kind: "song" | "stems" | "delete";
+  /** Fields that changed ("*" for a whole record). */
+  fields: string[];
+  /** Changes made by the folder sync itself (not written back). */
+  fromFolder?: boolean;
+}
+
+const changeListeners = new Set<(change: LibraryChange) => void>();
+
+/** Notifies about every change to the library (used by the folder sync and the library view). */
+export function onLibraryChange(listener: (change: LibraryChange) => void): () => void {
+  changeListeners.add(listener);
+  return () => changeListeners.delete(listener);
+}
+
+function emit(change: LibraryChange) {
+  for (const listener of changeListeners) listener(change);
+}
+
+/** The mixer is a per-browser preference; everything else is part of the song. */
+const touches = (fields: string[]) => fields.some((f) => f !== "mixer");
 
 function openDb(): Promise<IDBDatabase> {
   dbPromise ??= new Promise<IDBDatabase>((resolve, reject) => {
@@ -88,21 +114,30 @@ export async function getSong(id: string): Promise<SongRecord | undefined> {
   return result(db.transaction("songs").objectStore("songs").get(id) as IDBRequest<SongRecord | undefined>);
 }
 
-export async function putSong(song: SongRecord): Promise<void> {
+export async function putSong(song: SongRecord, options: { fromFolder?: boolean } = {}): Promise<void> {
   const db = await openDb();
   const tx = db.transaction("songs", "readwrite");
-  tx.objectStore("songs").put(song);
+  const record = options.fromFolder ? song : { ...song, updatedAt: Date.now() };
+  tx.objectStore("songs").put(record);
   await done(tx);
+  emit({ id: song.id, kind: "song", fields: ["*"], fromFolder: options.fromFolder });
 }
 
-export async function updateSong(id: string, patch: Partial<SongRecord>): Promise<SongRecord | undefined> {
+export async function updateSong(
+  id: string,
+  patch: Partial<SongRecord>,
+  options: { fromFolder?: boolean } = {},
+): Promise<SongRecord | undefined> {
+  const fields = Object.keys(patch);
+  const full = !options.fromFolder && touches(fields) ? { ...patch, updatedAt: Date.now() } : patch;
   const db = await openDb();
   const tx = db.transaction("songs", "readwrite");
   const store = tx.objectStore("songs");
   const current = await result(store.get(id) as IDBRequest<SongRecord | undefined>);
-  if (current) store.put({ ...current, ...patch });
+  if (current) store.put({ ...current, ...full });
   await done(tx);
-  return current ? { ...current, ...patch } : undefined;
+  if (current) emit({ id, kind: "song", fields, fromFolder: options.fromFolder });
+  return current ? { ...current, ...full } : undefined;
 }
 
 export async function deleteSong(id: string): Promise<void> {
@@ -111,6 +146,7 @@ export async function deleteSong(id: string): Promise<void> {
   tx.objectStore("songs").delete(id);
   tx.objectStore("files").delete(IDBKeyRange.bound(`${id}/`, `${id}/￿`));
   await done(tx);
+  emit({ id, kind: "delete", fields: ["*"] });
 }
 
 async function putFile(key: string, value: Blob): Promise<void> {
@@ -131,7 +167,12 @@ export const saveThumbnail = (id: string, blob: Blob) => putFile(fileKey.thumbna
 export const loadThumbnail = (id: string) => getFile(fileKey.thumbnail(id));
 
 /** Stores separated stems and marks the song ready, atomically. */
-export async function saveStems(id: string, stems: Int16Array[], patch: Partial<SongRecord>): Promise<SongRecord> {
+export async function saveStems(
+  id: string,
+  stems: Int16Array[],
+  patch: Partial<SongRecord>,
+  options: { fromFolder?: boolean } = {},
+): Promise<SongRecord> {
   const db = await openDb();
   const tx = db.transaction(["songs", "files"], "readwrite");
   const files = tx.objectStore("files");
@@ -146,9 +187,10 @@ export async function saveStems(id: string, stems: Int16Array[], patch: Partial<
     tx.abort();
     throw new Error("Song disappeared from the library");
   }
-  const next: SongRecord = { ...current, ...patch, status: "ready" };
+  const next: SongRecord = { ...current, ...patch, status: "ready", ...(options.fromFolder ? {} : { updatedAt: Date.now() }) };
   songs.put(next);
   await done(tx);
+  emit({ id, kind: "stems", fields: ["*"], fromFolder: options.fromFolder });
   return next;
 }
 

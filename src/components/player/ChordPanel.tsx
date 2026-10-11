@@ -306,7 +306,7 @@ function ChordChart({
           />
           <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
             <span>
-              Detected automatically — <span className="text-zinc-400 italic">grey italic</span> chords are uncertain. Click a bar
+              Detected automatically. <span className="text-zinc-400 italic">grey italic</span> chords are uncertain. Click a bar
               to jump there, Shift+click another bar to loop the passage.
             </span>
             <button
@@ -361,7 +361,7 @@ export function FollowToggle({ follow, onToggle }: { follow: boolean; onToggle: 
       role="switch"
       aria-checked={follow}
       onClick={onToggle}
-      title={follow ? "The chart scrolls along with the music — click to stop" : "Scroll the chart along with the music"}
+      title={follow ? "The chart scrolls along with the music. Click to stop" : "Scroll the chart along with the music"}
       className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition ${
         follow ? "bg-white/10 text-zinc-100" : "text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
       }`}
@@ -414,9 +414,9 @@ function NowNext({
             current?.uncertain ? "text-zinc-400 italic" : "text-zinc-50"
           }`}
           aria-live="off"
-          title={current?.uncertain ? "Uncertain — check by ear" : undefined}
+          title={current?.uncertain ? "Uncertain, check by ear" : undefined}
         >
-          {current?.label ?? "–"}
+          {current?.label ?? "·"}
         </div>
       </div>
       <div className="min-w-0 pb-1">
@@ -424,7 +424,7 @@ function NowNext({
           Next{beatsToNext !== null && beatsToNext > 0 ? ` · in ${beatsToNext} ${beatsToNext === 1 ? "beat" : "beats"}` : ""}
         </div>
         <div className={`truncate text-2xl font-semibold sm:text-3xl ${next?.uncertain ? "text-zinc-500 italic" : "text-zinc-300"}`}>
-          {next?.label ?? "–"}
+          {next?.label ?? "·"}
         </div>
       </div>
       <div className="ml-auto flex items-center gap-3 pb-2">
@@ -491,7 +491,7 @@ const ChordSheet = memo(function ChordSheet({
                   onSeek(bar.start);
                 }
               }}
-              title={`Bar ${bar.number} — click to jump, Shift+click to loop from the last clicked bar`}
+              title={`Bar ${bar.number}: click to jump, Shift+click to loop from the last clicked bar`}
               className={`relative flex h-14 items-stretch overflow-hidden rounded-xl border text-left transition ${
                 active
                   ? "border-guitar/50 bg-white/[0.07]"
@@ -520,7 +520,7 @@ const ChordSheet = memo(function ChordSheet({
                               ? "text-zinc-600"
                               : "text-zinc-200"
                       }`}
-                      title={cell.uncertain ? "Uncertain — check by ear" : undefined}
+                      title={cell.uncertain ? "Uncertain, check by ear" : undefined}
                     >
                       {cell.label}
                     </span>

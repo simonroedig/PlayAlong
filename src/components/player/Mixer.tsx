@@ -7,7 +7,7 @@ import type { PlayerEngine } from "@/lib/audio/engine";
 import { DISPLAY_ORDER, STEM_INFO, stemIndex, type MixerSettings } from "@/lib/mixer";
 import type { SourceName } from "@/lib/separation/model";
 
-const ICONS: Record<SourceName, LucideIcon> = {
+export const STEM_ICONS: Record<SourceName, LucideIcon> = {
   guitar: Guitar,
   bass: AudioWaveform,
   drums: Drum,
@@ -62,7 +62,7 @@ export function Mixer({ engine, mixer, gains, onChange, onDownloadStem }: Props)
       {DISPLAY_ORDER.map((name) => {
         const i = stemIndex(name);
         const info = STEM_INFO[name];
-        const Icon = ICONS[name];
+        const Icon = STEM_ICONS[name];
         const audible = gains[i] > 0;
         const volume = mixer.volumes[i];
         const muted = mixer.muted[i];

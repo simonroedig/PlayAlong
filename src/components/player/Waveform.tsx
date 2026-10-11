@@ -179,7 +179,7 @@ export function Waveform({ engine, envelopes, gains, duration, loop, loopEnabled
       <div
         ref={wrapRef}
         role="slider"
-        aria-label="Song position — click to seek, drag to set a loop"
+        aria-label="Song position: click to seek, drag to set a loop"
         aria-valuemin={0}
         aria-valuemax={Math.round(duration)}
         aria-valuenow={0}

@@ -88,14 +88,14 @@ export function ProcessingPanel({
         <div>
           <h2 className="text-lg font-semibold text-zinc-100">Preparing your play-along track</h2>
           <p className="text-sm text-zinc-500">
-            Elapsed {formatTime((now - startedAt) / 1000)} · everything runs locally in this tab — keep it open.
+            Elapsed {formatTime((now - startedAt) / 1000)} · everything runs in this tab, so keep it open.
           </p>
         </div>
         <div className="flex items-center gap-2">
           {backend && (
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-                backend === "webgpu" ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-300"
+                backend === "webgpu" ? "bg-white/10 text-zinc-100" : "bg-white/5 text-zinc-300"
               }`}
             >
               {backend === "webgpu" ? <Zap className="size-3.5" /> : <Cpu className="size-3.5" />}
@@ -131,7 +131,7 @@ export function ProcessingPanel({
                     status === "done"
                       ? "bg-emerald-400/15 text-emerald-300"
                       : status === "active"
-                        ? "bg-guitar/15 text-guitar"
+                        ? "bg-white/10 text-zinc-50"
                         : "bg-white/5 text-zinc-600"
                   }`}
                 >
@@ -151,10 +151,10 @@ export function ProcessingPanel({
               {status === "active" && (
                 <div className="mt-3 ml-9 h-1.5 overflow-hidden rounded-full bg-white/5">
                   {progress === null ? (
-                    <div className="h-full w-1/3 animate-pulse-soft rounded-full bg-gradient-to-r from-guitar/60 to-bass/60" />
+                    <div className="h-full w-1/3 animate-pulse-soft rounded-full bg-zinc-300/60" />
                   ) : (
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-guitar to-bass transition-[width] duration-300"
+                      className="h-full rounded-full bg-zinc-100 transition-[width] duration-300"
                       style={{ width: `${Math.max(2, Math.min(100, progress * 100))}%` }}
                     />
                   )}

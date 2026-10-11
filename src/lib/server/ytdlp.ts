@@ -131,10 +131,10 @@ function friendlyError(stderr: string): string {
   const errorLine = [...lines].reverse().find((l) => l.startsWith("ERROR:")) ?? lines.at(-1) ?? "yt-dlp failed";
   const message = errorLine.replace(/^ERROR:\s*(\[[^\]]+\]\s*[\w-]+:\s*)?/, "");
   if (/confirm you.?re not a bot|sign in to confirm/i.test(message)) {
-    return `${message} — YouTube wants a signed-in session. Set YTDLP_COOKIES_FROM_BROWSER=chrome (or firefox, safari, …) and restart the server.`;
+    return `${message}. YouTube wants a signed-in session. Set YTDLP_COOKIES_FROM_BROWSER=chrome (or firefox, safari, …) and restart the server.`;
   }
   if (/requested format is not available|no video formats/i.test(message)) {
-    return `${message} — try updating yt-dlp with \`npm run setup -- --update\`.`;
+    return `${message}. Try updating yt-dlp with \`npm run setup -- --update\`.`;
   }
   return message;
 }
