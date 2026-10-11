@@ -1,15 +1,15 @@
-import { useId } from "react";
+import { useId, type CSSProperties } from "react";
 
-const STRIPES: [number, string][] = [
-  [5.5, "#f472b6"],
+const STRIPES: { y: number; color: string; to: number; beat: string }[] = [
+  { y: 5.5, color: "#f472b6", to: 0.55, beat: "0.46s" },
   // the guitar stripe (y 10) is the missing part
-  [14.5, "#22d3ee"],
-  [19, "#a78bfa"],
-  [23.5, "#facc15"],
+  { y: 14.5, color: "#22d3ee", to: 0.4, beat: "0.69s" },
+  { y: 19, color: "#a78bfa", to: 0.7, beat: "0.92s" },
+  { y: 23.5, color: "#facc15", to: 0.35, beat: "0.23s" },
 ];
 
-/** The play triangle cut from the stem colours, one stripe missing (32 × 32 units, centred at 18, 16). */
-function Mark({ clip }: { clip: string }) {
+/** The play triangle cut from the stem colours, one stripe missing (32 × 32 units). */
+export function LogoMark({ clip, animated = false }: { clip: string; animated?: boolean }) {
   return (
     <>
       <defs>
@@ -18,10 +18,29 @@ function Mark({ clip }: { clip: string }) {
         </clipPath>
       </defs>
       <g clipPath={`url(#${clip})`}>
-        {STRIPES.map(([y, color]) => (
-          <rect key={y} x="9" y={y} width="20" height="3.2" fill={color} />
+        {STRIPES.map((s, i) => (
+          <rect
+            key={s.y}
+            x="9"
+            y={s.y}
+            width="20"
+            height="3.2"
+            fill={s.color}
+            className={animated ? "brand-stripe" : undefined}
+            style={animated ? ({ "--delay": `${i * 0.08}s`, "--to": s.to, "--beat": s.beat } as CSSProperties) : undefined}
+          />
         ))}
-        <rect x="9" y="10" width="20" height="3.2" fill="none" stroke="#fb923c" strokeWidth="0.9" strokeDasharray="1.6 1.2" />
+        <rect
+          x="9"
+          y="10"
+          width="20"
+          height="3.2"
+          fill="none"
+          stroke="#fb923c"
+          strokeWidth="0.9"
+          strokeDasharray="1.6 1.2"
+          className={animated ? "brand-missing" : undefined}
+        />
       </g>
     </>
   );
@@ -36,33 +55,7 @@ export function Logo({ size = 28, className = "" }: { size?: number; className?:
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden className={className}>
       <rect x="0.5" y="0.5" width="31" height="31" rx="9" fill="#14141c" stroke="rgb(255 255 255 / 0.12)" />
-      <Mark clip={clip} />
-    </svg>
-  );
-}
-
-/** The round logo with "PlayAlong" curving underneath (the header). */
-export function BrandMark({ className = "" }: { className?: string }) {
-  const id = useId();
-  return (
-    <svg viewBox="0 0 140 96" className={className} role="img" aria-label="PlayAlong">
-      <defs>
-        <radialGradient id={`${id}-glow`} cx="50%" cy="50%" r="50%">
-          <stop offset="0" stopColor="rgb(255 255 255 / 0.1)" />
-          <stop offset="1" stopColor="rgb(255 255 255 / 0)" />
-        </radialGradient>
-        <path id={`${id}-arc`} d="M 22 66 Q 70 96 118 66" fill="none" />
-      </defs>
-      <circle cx="70" cy="34" r="34" fill={`url(#${id}-glow)`} />
-      <circle cx="70" cy="34" r="27" fill="#14141c" stroke="rgb(255 255 255 / 0.16)" />
-      <g transform="translate(49.5 14.5) scale(1.25)">
-        <Mark clip={`${id}-clip`} />
-      </g>
-      <text fill="#f4f4f5" fontSize="13" fontWeight="700" letterSpacing="3" style={{ fontFamily: "var(--font-sans)" }}>
-        <textPath href={`#${id}-arc`} startOffset="50%" textAnchor="middle">
-          PLAYALONG
-        </textPath>
-      </text>
+      <LogoMark clip={clip} />
     </svg>
   );
 }

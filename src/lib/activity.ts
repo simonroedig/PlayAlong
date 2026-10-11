@@ -33,3 +33,22 @@ export const activityStore = {
   getSnapshot: () => snapshot,
   getServerSnapshot: (): string | null => null,
 };
+
+// Whether music is playing (the logo dances along).
+let playing = false;
+const playListeners = new Set<() => void>();
+
+export function setPlaying(value: boolean) {
+  if (playing === value) return;
+  playing = value;
+  for (const l of playListeners) l();
+}
+
+export const playingStore = {
+  subscribe(listener: () => void) {
+    playListeners.add(listener);
+    return () => playListeners.delete(listener);
+  },
+  getSnapshot: () => playing,
+  getServerSnapshot: () => false,
+};

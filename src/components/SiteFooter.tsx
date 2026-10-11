@@ -5,12 +5,7 @@ const STEMS = ["#f472b6", "#facc15", "#22d3ee", "#fb923c", "#a78bfa", "#4ade80"]
 
 export function SiteFooter() {
   return (
-    <footer className="relative mt-8 border-t border-white/5">
-      <div className="stem-rule absolute inset-x-0 -top-px h-px opacity-80" aria-hidden>
-        {STEMS.map((c) => (
-          <span key={c} style={{ background: `linear-gradient(to right, transparent, ${c}, transparent)` }} />
-        ))}
-      </div>
+    <footer className="relative mt-8 border-t border-white/5 bg-black/20">
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.3fr_1fr_1fr]">
         <div>
           <div className="flex items-center gap-3">

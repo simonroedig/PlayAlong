@@ -5,6 +5,8 @@ import { memo, useMemo, useRef, useState } from "react";
 import { BackToNow } from "@/components/player/BackToNow";
 import { LyricsView } from "@/components/player/LyricsView";
 import { Select } from "@/components/ui/Select";
+import { StemProgress } from "@/components/ui/StemProgress";
+import { STEM_INFO } from "@/lib/mixer";
 import type { ChordState } from "@/hooks/useChords";
 import type { LyricsState } from "@/hooks/useLyrics";
 import { useChordPlayhead } from "@/hooks/useChordPlayhead";
@@ -137,8 +139,17 @@ function Progress({ phase, fraction }: { phase: ChordPhase; fraction: number }) 
         </span>
         <span className="text-xs text-zinc-500">the player already works meanwhile</span>
       </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/5">
-        <div className="h-full rounded-full bg-zinc-200 transition-[width] duration-300" style={{ width: `${overall * 100}%` }} />
+      <div className="mt-3">
+        <StemProgress
+          lanes={[
+            { color: STEM_INFO.guitar.color, label: "Guitar" },
+            { color: STEM_INFO.bass.color, label: "Bass" },
+            { color: STEM_INFO.piano.color, label: "Keys" },
+          ]}
+          fraction={overall}
+          blocks={40}
+          size="sm"
+        />
       </div>
     </div>
   );

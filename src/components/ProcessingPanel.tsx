@@ -3,7 +3,11 @@
 import { Check, Cpu, Info, Loader2, X, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { PipelineState } from "@/lib/pipeline";
+import { StemProgress, type Lane } from "@/components/ui/StemProgress";
+import { DISPLAY_ORDER, STEM_INFO } from "@/lib/mixer";
 import { formatTime } from "@/lib/songs";
+
+const LANES: Lane[] = DISPLAY_ORDER.map((name) => ({ color: STEM_INFO[name].color, label: STEM_INFO[name].label }));
 
 type StepId = "download" | "decode" | "model" | "separate" | "save";
 const ORDER: StepId[] = ["download", "decode", "model", "separate", "save"];
@@ -76,30 +80,31 @@ export function ProcessingPanel({
     download: "Fetch audio from YouTube",
     decode: "Decode audio",
     model: "Load the separation model",
-    separate: "Separate into 6 stems",
+    separate: "Separate the 6 instruments",
     save: "Save",
   };
 
   const backend = state?.step === "separate" ? state.backend : state?.step === "model" ? state.backend : undefined;
+  const { text, progress } = detail(current);
+  // The stems fill while the song is being separated; before that, light sweeps along them.
+  const separation = state?.step === "separate" ? state.done / state.total : state?.step === "save" ? 1 : null;
+  const blocks = state?.step === "separate" ? Math.min(48, Math.max(12, state.total)) : 32;
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-ink-900/70 p-5 sm:p-7" aria-live="polite">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section className="overflow-hidden rounded-3xl border border-white/10 bg-ink-900/70 p-5 sm:p-7" aria-live="polite">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-zinc-100">Preparing your play-along track</h2>
-          <p className="text-sm text-zinc-500">
-            Elapsed {formatTime((now - startedAt) / 1000)} · everything runs in this tab, so keep it open.
+          <h2 className="text-lg font-semibold text-zinc-50">Taking your song apart</h2>
+          <p className="mt-0.5 text-sm text-zinc-400">
+            {labels[current]}
+            {text ? ` · ${text}` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
           {backend && (
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-                backend === "webgpu" ? "bg-white/10 text-zinc-100" : "bg-white/5 text-zinc-300"
-              }`}
-            >
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-xs font-medium text-zinc-200">
               {backend === "webgpu" ? <Zap className="size-3.5" /> : <Cpu className="size-3.5" />}
-              {backend === "webgpu" ? "WebGPU" : "CPU"}
+              {backend === "webgpu" ? "Your GPU" : "Your CPU"}
             </span>
           )}
           {onCancel && (
@@ -114,52 +119,29 @@ export function ProcessingPanel({
         </div>
       </div>
 
-      <ol className="mt-6 space-y-2">
+      <div className="mt-6">
+        <StemProgress lanes={LANES} fraction={separation} blocks={blocks} />
+      </div>
+
+      <ol className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-2 text-xs">
         {steps.map((step, i) => {
           const status = i < currentIndex ? "done" : i === currentIndex ? "active" : "pending";
-          const { text, progress } = detail(step);
           return (
-            <li
-              key={step}
-              className={`rounded-2xl border px-4 py-3 transition ${
-                status === "active" ? "border-white/10 bg-white/[0.04]" : "border-transparent"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span
-                  className={`grid size-6 shrink-0 place-items-center rounded-full text-xs ${
-                    status === "done"
-                      ? "bg-emerald-400/15 text-emerald-300"
-                      : status === "active"
-                        ? "bg-white/10 text-zinc-50"
-                        : "bg-white/5 text-zinc-600"
-                  }`}
-                >
-                  {status === "done" ? (
-                    <Check className="size-3.5" />
-                  ) : status === "active" ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    i + 1
-                  )}
-                </span>
-                <span className={`text-sm font-medium ${status === "pending" ? "text-zinc-500" : "text-zinc-200"}`}>
-                  {labels[step]}
-                </span>
-                {status === "active" && text && <span className="ml-auto truncate text-xs text-zinc-400">{text}</span>}
-              </div>
-              {status === "active" && (
-                <div className="mt-3 ml-9 h-1.5 overflow-hidden rounded-full bg-white/5">
-                  {progress === null ? (
-                    <div className="h-full w-1/3 animate-pulse-soft rounded-full bg-zinc-300/60" />
-                  ) : (
-                    <div
-                      className="h-full rounded-full bg-zinc-100 transition-[width] duration-300"
-                      style={{ width: `${Math.max(2, Math.min(100, progress * 100))}%` }}
-                    />
-                  )}
-                </div>
-              )}
+            <li key={step} className="flex items-center gap-2">
+              {i > 0 && <span className={`h-px w-4 ${i <= currentIndex ? "bg-white/30" : "bg-white/10"}`} aria-hidden />}
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium ${
+                  status === "done"
+                    ? "bg-emerald-400/10 text-emerald-300"
+                    : status === "active"
+                      ? "bg-white/10 text-zinc-50"
+                      : "text-zinc-500"
+                }`}
+              >
+                {status === "done" ? <Check className="size-3" /> : status === "active" ? <Loader2 className="size-3 animate-spin" /> : null}
+                {labels[step]}
+                {status === "active" && progress !== null && step !== "separate" ? ` ${Math.round(progress * 100)} %` : ""}
+              </span>
             </li>
           );
         })}
@@ -175,11 +157,17 @@ export function ProcessingPanel({
         </ul>
       )}
 
-      <p className="mt-5 text-xs leading-relaxed text-zinc-500">
-        The song is split with Demucs v4 (6 stems) in 7.8-second segments. With WebGPU this typically runs faster than
-        real time; on the CPU expect roughly the length of the song or more. Finished songs are stored in your browser
-        and open instantly next time.
-      </p>
+      <div className="mt-6 grid gap-3 border-t border-white/5 pt-5 text-xs leading-relaxed text-zinc-400 sm:grid-cols-2">
+        <p>
+          <span className="font-medium text-zinc-200">Keep this page open.</span> Switching to other tabs or apps is fine, but
+          closing it or going to another page stops the work, and it starts over next time.
+        </p>
+        <p>
+          Elapsed {formatTime((now - startedAt) / 1000)}. Everything runs right here on your{" "}
+          {backend && backend !== "webgpu" ? "processor" : "computer"}; with a graphics card (WebGPU) it is usually faster than the song
+          itself. Finished songs open instantly next time.
+        </p>
+      </div>
     </section>
   );
 }

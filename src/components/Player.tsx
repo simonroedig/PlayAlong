@@ -1,16 +1,17 @@
 "use client";
 
-import { ChevronDown, Download, Keyboard, Loader2, Zap, Cpu } from "lucide-react";
+import { Download, Keyboard, Loader2, Zap, Cpu } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ChordLane } from "@/components/player/ChordLane";
 import { ChordPanel } from "@/components/player/ChordPanel";
 import { Mixer } from "@/components/player/Mixer";
 import { PresetBar } from "@/components/player/PresetBar";
+import { ShortcutsDialog } from "@/components/player/ShortcutsDialog";
 import { Transport } from "@/components/player/Transport";
 import { Waveform } from "@/components/player/Waveform";
 import { useChords } from "@/hooks/useChords";
 import { useLyrics } from "@/hooks/useLyrics";
-import { beginActivity } from "@/lib/activity";
+import { beginActivity, setPlaying } from "@/lib/activity";
 import { PlayerEngine, type LoopRegion, type PlayerSnapshot } from "@/lib/audio/engine";
 import { mixToWav } from "@/lib/audio/wav";
 import { stemEnvelopes } from "@/lib/audio/waveform";
@@ -81,6 +82,7 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
   const [rate, setRate] = useState(1);
   const [exporting, setExporting] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
+  const closeKeys = useCallback(() => setShowKeys(false), []);
   const [chordView, setChordView] = useState<ChordView>(() => initialChordView(song));
   const { state: chordState, reanalyze } = useChords(song, stems, frames);
   // Lyrics wait for the chords, so the two analyses don't compete for the CPU.
@@ -126,6 +128,9 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
   );
 
   useEffect(() => engine?.setGains(gains), [engine, gains]);
+  // The logo dances along while music plays.
+  useEffect(() => setPlaying(snapshot.playing), [snapshot.playing]);
+  useEffect(() => () => setPlaying(false), []);
   useEffect(() => engine?.setLoop(loop && loopEnabled ? loop : null), [engine, loop, loopEnabled]);
   useEffect(() => engine?.setRate(rate), [engine, rate]);
 
@@ -233,6 +238,9 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
           case "V":
             switchVocals();
             return true;
+          case "?":
+            setShowKeys((v) => !v);
+            return true;
           case "-":
             setRate((r) => Math.max(0.5, Math.round((r - 0.05) * 100) / 100));
             return true;
@@ -283,7 +291,21 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
 
   return (
     <div className="space-y-5">
-      <PresetBar active={preset} vocals={vocalsOn(mixer)} onSelect={selectPreset} onVocals={switchVocals} />
+      <div>
+        <div className="mb-2.5 flex items-center justify-between gap-2">
+          <p className="text-[11px] font-semibold tracking-[0.16em] text-zinc-500 uppercase">Practice mode</p>
+          <button
+            type="button"
+            onClick={() => setShowKeys(true)}
+            className="inline-flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs text-zinc-400 transition hover:bg-white/5 hover:text-zinc-100"
+          >
+            <Keyboard className="size-4" /> Shortcuts
+            <kbd className="rounded-md border border-white/10 bg-white/5 px-1.5 font-mono text-[10px] text-zinc-300">?</kbd>
+          </button>
+        </div>
+        <PresetBar active={preset} vocals={vocalsOn(mixer)} onSelect={selectPreset} onVocals={switchVocals} />
+      </div>
+      <ShortcutsDialog open={showKeys} onClose={closeKeys} />
 
       <section className="rounded-3xl border border-white/10 bg-ink-900/70 p-4 sm:p-5">
         <Waveform
@@ -347,17 +369,6 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => setShowKeys((v) => !v)}
-              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm transition ${
-                showKeys ? "border-white/15 bg-white/[0.06] text-zinc-100" : "border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
-              }`}
-              aria-expanded={showKeys}
-            >
-              <Keyboard className="size-4" /> Shortcuts
-              <ChevronDown className={`size-3.5 transition-transform ${showKeys ? "rotate-180" : ""}`} />
-            </button>
-            <button
-              type="button"
               onClick={() => download("mix")}
               disabled={exporting}
               className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-sm font-medium text-zinc-200 transition hover:bg-white/10 disabled:opacity-50"
@@ -368,27 +379,6 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
             </button>
           </div>
         </div>
-
-        {showKeys && (
-          <dl className="mb-3 grid grid-cols-2 gap-x-6 gap-y-1.5 rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-xs text-zinc-400 sm:grid-cols-4">
-            {[
-              ["Space", "Play / pause"],
-              ["← / →", "Skip 5 s (Shift: 1 s)"],
-              ["Home", "Back to start / loop start"],
-              ["1 to 5", "Practice modes"],
-              ["G / B", "Mute guitar / bass"],
-              ["V", "Vocals on / off"],
-              ["L", "Loop on / off"],
-              ["[ / ]", "Set loop start / end"],
-              ["− / +", "Slower / faster"],
-            ].map(([k, v]) => (
-              <div key={k} className="flex items-center gap-2">
-                <dt className="min-w-12 rounded-md bg-white/5 px-1.5 py-0.5 text-center font-mono text-zinc-200">{k}</dt>
-                <dd>{v}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
 
         <Mixer engine={engine} mixer={mixer} gains={gains} onChange={setMixer} onDownloadStem={(i) => download(i)} />
       </section>

@@ -192,6 +192,7 @@ python scripts/export_model.py     # writes public/models/htdemucs_6s.onnx and i
 | `Home` | Back to start (or loop start) |
 | `1` to `5` | Full mix · No guitar · Guitar only · No bass · Bass only |
 | `V` | Vocals on / off |
+| `?` | Show all shortcuts |
 | `G` / `B` | Mute / unmute guitar / bass |
 | `L` | Loop on/off (creates an 8 s loop at the playhead if none) |
 | `[` / `]` | Set loop start / end at the playhead |

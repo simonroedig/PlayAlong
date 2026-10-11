@@ -4,6 +4,8 @@ import { Languages, Loader2, Mic, Music2, RotateCcw, TriangleAlert } from "lucid
 import { memo, useMemo, useRef, useState } from "react";
 import { BackToNow } from "@/components/player/BackToNow";
 import { Select } from "@/components/ui/Select";
+import { StemProgress } from "@/components/ui/StemProgress";
+import { STEM_INFO } from "@/lib/mixer";
 import { useFollowScroll } from "@/hooks/useFollowScroll";
 import type { LyricsState } from "@/hooks/useLyrics";
 import { useSheetPlayhead } from "@/hooks/useSheetPlayhead";
@@ -111,9 +113,18 @@ function Running({ state }: { state: Extract<LyricsState, { status: "running" }>
         </span>
         <span className="text-xs text-zinc-500">takes a minute or two · keep playing meanwhile</span>
       </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/5">
-        <div className="h-full rounded-full bg-zinc-200 transition-[width] duration-300" style={{ width: `${overall * 100}%` }} />
+      <div className="mt-4">
+        <StemProgress
+          lanes={[
+            { color: STEM_INFO.vocals.color, label: "Vocals" },
+            { color: "#f4f4f5", label: "Words" },
+          ]}
+          fraction={state.phase === "transcribe" || state.phase === "model" ? overall : null}
+          blocks={40}
+          size="sm"
+        />
       </div>
+      <p className="mt-3 text-xs text-zinc-500">Keep this page open: going to another page or closing it stops the transcription.</p>
     </div>
   );
 }

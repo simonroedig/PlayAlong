@@ -4,7 +4,8 @@ import Link from "next/link";
 import { EngineBadge } from "@/components/EngineBadge";
 import { EnvironmentNotice } from "@/components/EnvironmentNotice";
 import { FolderStatus } from "@/components/FolderStatus";
-import { BrandMark } from "@/components/Logo";
+import { BrandMark } from "@/components/BrandMark";
+import { LeaveGuard } from "@/components/LeaveGuard";
 import { SiteFooter } from "@/components/SiteFooter";
 import "./globals.css";
 
@@ -32,7 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <FolderStatus />
             </div>
             <Link href="/" aria-label="PlayAlong home" className="justify-self-center transition hover:opacity-90">
-              <BrandMark className="h-[80px] w-[117px] sm:h-[96px] sm:w-[140px]" />
+              <BrandMark className="h-[96px] w-[137px] sm:h-[124px] sm:w-[177px]" />
             </Link>
             <div className="justify-self-end">
               <EngineBadge />
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {children}
         </main>
         <SiteFooter />
+        <LeaveGuard />
       </body>
     </html>
   );
