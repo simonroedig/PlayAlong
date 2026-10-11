@@ -30,6 +30,7 @@ export function LogoMark({ clip, animated = false }: { clip: string; animated?: 
             style={animated ? ({ "--delay": `${i * 0.08}s`, "--to": s.to, "--beat": s.beat } as CSSProperties) : undefined}
           />
         ))}
+        {animated && <rect x="9" y="10" width="20" height="3.2" fill="#fb923c" className="brand-fill" />}
         <rect
           x="9"
           y="10"

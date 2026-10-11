@@ -225,14 +225,53 @@ input[type="range"].slider:focus-visible {
   }
 }
 
-/* Logo stripes: slide in, and dance while music plays. */
+/* Logo: stripes slide in on each page; on hover they ripple and the missing
+   part fills in; they ripple slowly while the device works and dance while
+   music plays. The missing stripe breathes very slowly. */
 .brand-stripe {
   transform-box: fill-box;
   transform-origin: left center;
   animation: grow-x 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) var(--delay, 0s) both;
 }
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
 .brand-missing {
-  animation: missing 1.2s steps(1) 0.9s infinite;
+  animation: breathe 6s ease-in-out infinite;
+}
+.brand-fill {
+  opacity: 0;
+  transform: scaleX(0);
+  transform-box: fill-box;
+  transform-origin: left center;
+  transition:
+    opacity 0.3s ease,
+    transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) 0.15s;
+}
+.brand-mark {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes stripe-wave {
+  0% {
+    transform: none;
+  }
+  35% {
+    transform: translateX(16%) scaleX(0.8);
+  }
+  70% {
+    transform: translateX(-4%) scaleX(1.04);
+  }
+  100% {
+    transform: none;
+  }
 }
 @keyframes stripe-dance {
   from {
@@ -242,11 +281,21 @@ input[type="range"].slider:focus-visible {
     transform: scaleX(var(--to, 0.55));
   }
 }
+[data-busy="true"] .brand-stripe {
+  animation: stripe-wave 2.4s ease-in-out var(--delay, 0s) infinite;
+}
 [data-playing="true"] .brand-stripe {
   animation: stripe-dance var(--beat, 0.46s) ease-in-out infinite alternate;
 }
 .brand:hover .brand-stripe {
-  animation: grow-x 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) var(--delay, 0s) both;
+  animation: stripe-wave 0.9s ease-in-out var(--delay, 0s) both;
+}
+.brand:hover .brand-fill {
+  opacity: 1;
+  transform: scaleX(1);
+}
+.brand:hover .brand-mark {
+  transform: scale(1.07) rotate(-4deg);
 }
 
 /* Progress: blocks filling, a sweep while waiting. */
@@ -273,7 +322,9 @@ input[type="range"].slider:focus-visible {
   .grow-x,
   .brand-stripe,
   .brand-missing,
-  [data-playing="true"] .brand-stripe {
+  [data-busy="true"] .brand-stripe,
+  [data-playing="true"] .brand-stripe,
+  .brand:hover .brand-stripe {
     animation: none !important;
   }
   .reveal {

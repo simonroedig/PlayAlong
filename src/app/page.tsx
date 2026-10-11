@@ -23,7 +23,7 @@ export default function Home() {
                 {RULE.map((stem, i) => (
                   <span
                     key={stem.label}
-                    className={stem === STEM_INFO.guitar ? "grow-x brand-missing" : "grow-x"}
+                    className="grow-x"
                     style={
                       {
                         "--delay": `${0.45 + i * 0.09}s`,
