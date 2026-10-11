@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Player } from "@/components/Player";
 import { ProcessingPanel } from "@/components/ProcessingPanel";
 import { Thumbnail } from "@/components/Thumbnail";
+import { beginActivity } from "@/lib/activity";
 import { prepareSong, type PipelineState } from "@/lib/pipeline";
 import { SOURCES } from "@/lib/separation/model";
 import { formatTime, parseSongId } from "@/lib/songs";
@@ -71,6 +72,11 @@ export function SongView({ id }: { id: string }) {
     });
     return () => controller.abort();
   }, [id, attempt]);
+
+  useEffect(
+    () => (view.kind === "processing" ? beginActivity("Separating") : view.kind === "importing" ? beginActivity("Unpacking") : undefined),
+    [view.kind],
+  );
 
   const cancel = useCallback(() => {
     controllerRef.current?.abort();

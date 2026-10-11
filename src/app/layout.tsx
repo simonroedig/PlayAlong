@@ -4,7 +4,8 @@ import Link from "next/link";
 import { EngineBadge } from "@/components/EngineBadge";
 import { EnvironmentNotice } from "@/components/EnvironmentNotice";
 import { FolderStatus } from "@/components/FolderStatus";
-import { Logo } from "@/components/Logo";
+import { BrandMark } from "@/components/Logo";
+import { SiteFooter } from "@/components/SiteFooter";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -25,14 +26,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     // Browser extensions add classes and attributes to <html> and <body> before React hydrates.
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="flex min-h-full flex-col font-sans" suppressHydrationWarning>
-        <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/75 backdrop-blur-xl">
-          <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-            <Link href="/" className="flex items-center gap-2.5" aria-label="PlayAlong home">
-              <Logo />
-              <span className="text-[15px] font-semibold tracking-tight text-zinc-50">PlayAlong</span>
-            </Link>
-            <div className="flex items-center gap-2">
+        <header className="relative z-30">
+          <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 pt-4 pb-2 sm:px-6">
+            <div className="justify-self-start">
               <FolderStatus />
+            </div>
+            <Link href="/" aria-label="PlayAlong home" className="justify-self-center transition hover:opacity-90">
+              <BrandMark className="h-[80px] w-[117px] sm:h-[96px] sm:w-[140px]" />
+            </Link>
+            <div className="justify-self-end">
               <EngineBadge />
             </div>
           </div>
@@ -41,9 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <EnvironmentNotice />
           {children}
         </main>
-        <footer className="border-t border-white/5 py-6 text-center text-xs text-zinc-500">
-          Separation, chords and lyrics are computed on your own device. Your songs stay with you.
-        </footer>
+        <SiteFooter />
       </body>
     </html>
   );

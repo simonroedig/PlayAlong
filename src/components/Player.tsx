@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Keyboard, Loader2, Zap, Cpu } from "lucide-react";
+import { ChevronDown, Download, Keyboard, Loader2, Zap, Cpu } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ChordLane } from "@/components/player/ChordLane";
 import { ChordPanel } from "@/components/player/ChordPanel";
@@ -10,6 +10,7 @@ import { Transport } from "@/components/player/Transport";
 import { Waveform } from "@/components/player/Waveform";
 import { useChords } from "@/hooks/useChords";
 import { useLyrics } from "@/hooks/useLyrics";
+import { beginActivity } from "@/lib/activity";
 import { PlayerEngine, type LoopRegion, type PlayerSnapshot } from "@/lib/audio/engine";
 import { mixToWav } from "@/lib/audio/wav";
 import { stemEnvelopes } from "@/lib/audio/waveform";
@@ -32,20 +33,9 @@ import { MODEL_LABEL, SAMPLE_RATE, SOURCES } from "@/lib/separation/model";
 import { formatTime } from "@/lib/songs";
 import { loadStems, updateSong, type SongRecord } from "@/lib/storage/library";
 
-const PRESET_KEY = "playalong:preset";
 const SIMPLE_CHORDS_KEY = "playalong:simple-chords";
 const idleSnapshot: PlayerSnapshot = { loaded: false, playing: false, duration: 0, rate: 1, loop: null };
 const noopSubscribe = () => () => {};
-
-function preferredPreset(): PresetId {
-  try {
-    const stored = localStorage.getItem(PRESET_KEY) as PresetId | null;
-    if (stored && PRESETS.some((p) => p.id === stored)) return stored;
-  } catch {
-    // storage blocked
-  }
-  return "no-guitar";
-}
 
 function initialChordView(song: SongRecord): ChordView {
   let simple = DEFAULT_CHORD_VIEW.simple;
@@ -83,7 +73,8 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
   const [engine, setEngine] = useState<PlayerEngine | null>(null);
   const [engineError, setEngineError] = useState<string | null>(null);
   const [mixer, setMixer] = useState<MixerSettings>(() =>
-    song.mixer ? normalizeMixer(song.mixer) : applyPreset(defaultMixer(), preferredPreset()),
+    // Songs open in the full mix (volume levels are kept per song).
+    applyPreset(song.mixer ? normalizeMixer(song.mixer) : defaultMixer(), "full", true),
   );
   const [loop, setLoop] = useState<LoopRegion | null>(null);
   const [loopEnabled, setLoopEnabled] = useState(false);
@@ -94,6 +85,9 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
   const { state: chordState, reanalyze } = useChords(song, stems, frames);
   // Lyrics wait for the chords, so the two analyses don't compete for the CPU.
   const lyrics = useLyrics(song, stems, frames, chordState.status !== "running");
+  // The header's compute badge lights up while chords or lyrics are being worked out.
+  useEffect(() => (chordState.status === "running" ? beginActivity("Finding chords") : undefined), [chordState.status]);
+  useEffect(() => (lyrics.state.status === "running" ? beginActivity("Writing lyrics") : undefined), [lyrics.state.status]);
   const chords = useMemo(
     () => (chordState.status === "ready" ? displayChords(chordState.analysis, chordView) : null),
     [chordState, chordView],
@@ -135,19 +129,9 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
   useEffect(() => engine?.setLoop(loop && loopEnabled ? loop : null), [engine, loop, loopEnabled]);
   useEffect(() => engine?.setRate(rate), [engine, rate]);
 
-  // Remember the mix per song, and the practice mode across songs.
+  // Remember the mix per song.
   useEffect(() => {
-    const t = setTimeout(() => {
-      void updateSong(song.id, { mixer });
-      const p = matchPreset(mixer);
-      if (p) {
-        try {
-          localStorage.setItem(PRESET_KEY, p);
-        } catch {
-          // ignore
-        }
-      }
-    }, 400);
+    const t = setTimeout(() => void updateSong(song.id, { mixer }), 400);
     return () => clearTimeout(t);
   }, [mixer, song.id]);
 
@@ -364,10 +348,13 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
             <button
               type="button"
               onClick={() => setShowKeys((v) => !v)}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm text-zinc-400 transition hover:bg-white/5 hover:text-zinc-100"
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm transition ${
+                showKeys ? "border-white/15 bg-white/[0.06] text-zinc-100" : "border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
+              }`}
               aria-expanded={showKeys}
             >
               <Keyboard className="size-4" /> Shortcuts
+              <ChevronDown className={`size-3.5 transition-transform ${showKeys ? "rotate-180" : ""}`} />
             </button>
             <button
               type="button"

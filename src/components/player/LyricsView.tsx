@@ -2,6 +2,8 @@
 
 import { Languages, Loader2, Mic, Music2, RotateCcw, TriangleAlert } from "lucide-react";
 import { memo, useMemo, useRef, useState } from "react";
+import { BackToNow } from "@/components/player/BackToNow";
+import { Select } from "@/components/ui/Select";
 import { useFollowScroll } from "@/hooks/useFollowScroll";
 import type { LyricsState } from "@/hooks/useLyrics";
 import { useSheetPlayhead } from "@/hooks/useSheetPlayhead";
@@ -51,24 +53,10 @@ export function LyricsView(props: Props) {
   );
 }
 
+const LANGUAGE_OPTIONS = [{ value: "", label: "Detect language" }, ...LYRICS_LANGUAGES.map((l) => ({ value: l.code, label: l.name }))];
+
 function LanguageSelect({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
-  return (
-    <select
-      aria-label={label}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-8 rounded-xl border-0 bg-white/5 px-2 text-xs font-medium text-zinc-300 outline-none hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-zinc-400"
-    >
-      <option value="" className="bg-ink-900">
-        Detect language
-      </option>
-      {LYRICS_LANGUAGES.map((l) => (
-        <option key={l.code} value={l.code} className="bg-ink-900">
-          {l.name}
-        </option>
-      ))}
-    </select>
-  );
+  return <Select label={label} value={value} onChange={onChange} options={LANGUAGE_OPTIONS} />;
 }
 
 function Start({ auto, onAuto, onTranscribe }: Props) {
@@ -87,12 +75,12 @@ function Start({ auto, onAuto, onTranscribe }: Props) {
         <button
           type="button"
           onClick={() => onTranscribe(language || null)}
-          className="inline-flex h-8 items-center gap-1.5 rounded-xl bg-zinc-100 px-3 text-xs font-semibold text-ink-950 hover:bg-white"
+          className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-zinc-100 px-3.5 text-xs font-semibold text-ink-950 hover:bg-white"
         >
           <Languages className="size-3.5" /> Transcribe lyrics
         </button>
         <label className="ml-auto inline-flex items-center gap-2 text-xs text-zinc-400">
-          <input type="checkbox" checked={auto} onChange={(e) => onAuto(e.target.checked)} className="accent-orange-400" />
+          <input type="checkbox" checked={auto} onChange={(e) => onAuto(e.target.checked)} className="size-4 accent-zinc-100" />
           Transcribe new songs automatically
         </label>
       </div>
@@ -144,7 +132,10 @@ function LyricsSheet({
   const sheet = useMemo(() => lyricsSheet(lyrics.lines, chords, duration), [lyrics, chords, duration]);
   const languages = useMemo(() => lyricsLanguages(lyrics.lines, lyrics.language), [lyrics]);
   const position = useSheetPlayhead(engine, sheet);
-  const { ref, onUserScroll } = useFollowScroll<HTMLDivElement>(follow, position.line >= 0 ? `[data-line="${position.line}"]` : null);
+  const { ref, onUserScroll, onScroll, away, recenter } = useFollowScroll<HTMLDivElement>(
+    follow,
+    position.line >= 0 ? `[data-line="${position.line}"]` : null,
+  );
   const anchor = useRef<number | null>(null);
   const [language, setLanguage] = useState("");
 
@@ -162,11 +153,13 @@ function LyricsSheet({
 
   return (
     <>
+      <div className="relative mt-3">
       <div
         ref={ref}
         onWheel={onUserScroll}
         onTouchMove={onUserScroll}
-        className="relative mt-2 max-h-[24rem] space-y-0.5 overflow-y-auto rounded-2xl border border-white/5 bg-black/20 p-2"
+        onScroll={onScroll}
+        className="relative max-h-[26rem] space-y-1 overflow-y-auto rounded-2xl border border-white/5 bg-black/20 p-2"
       >
         {lyrics.lines.length === 0 && (
           <p className="px-3 py-6 text-center text-sm text-zinc-500">No sung vocals found in this song.</p>
@@ -184,6 +177,8 @@ function LyricsSheet({
           />
         ))}
       </div>
+      <BackToNow show={away} onClick={recenter} />
+      </div>
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-zinc-500">
         <span>
           {languages.map(languageName).join(" & ")}
@@ -200,7 +195,7 @@ function LyricsSheet({
           <button
             type="button"
             onClick={() => onTranscribe(language || null)}
-            className="inline-flex h-8 items-center gap-1 rounded-xl px-2 hover:bg-white/5 hover:text-zinc-300"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/10 px-3 text-zinc-300 hover:bg-white/5 hover:text-zinc-100"
           >
             <RotateCcw className="size-3" /> Transcribe again
           </button>
@@ -227,7 +222,14 @@ const SheetRow = memo(function SheetRow({
   currentChord: number;
   onClick: (index: number, shift: boolean) => void;
 }) {
-  const base = `block w-full rounded-xl px-3 text-left transition-colors ${active ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"}`;
+  // The current line stands out: lit background, an accent bar and full brightness.
+  const base = `relative block w-full rounded-xl px-4 text-left transition-colors ${
+    active
+      ? "bg-white/[0.09] shadow-[inset_3px_0_0_var(--color-guitar)]"
+      : past
+        ? "opacity-60 hover:bg-white/[0.03] hover:opacity-100"
+        : "hover:bg-white/[0.03]"
+  }`;
   if (line.kind === "instrumental") {
     return (
       <button type="button" data-line={index} onClick={(e) => onClick(index, e.shiftKey)} className={`${base} py-1.5`}>
@@ -236,7 +238,7 @@ const SheetRow = memo(function SheetRow({
           {line.chords.map((c) => (
             <span
               key={c.index}
-              className={`font-semibold ${c.index === currentChord ? "text-guitar" : c.uncertain ? "text-zinc-500 italic" : "text-zinc-300"}`}
+              className={`pr-[0.15em] font-semibold ${c.index === currentChord ? "text-guitar" : "text-orange-200/90"} ${c.uncertain ? "italic" : ""}`}
             >
               {c.label}
             </span>
@@ -255,8 +257,8 @@ const SheetRow = memo(function SheetRow({
                 {w.chords.map((c) => (
                   <span
                     key={c.index}
-                    className={`mr-1.5 ${
-                      c.index === currentChord && active ? "text-guitar" : c.carried ? "text-zinc-600" : c.uncertain ? "text-zinc-500 italic" : "text-orange-200/80"
+                    className={`mr-1.5 pr-[0.1em] ${c.index === currentChord && active ? "text-guitar" : "text-orange-200/90"} ${
+                      c.uncertain ? "italic" : ""
                     }`}
                   >
                     {c.label}
@@ -266,7 +268,7 @@ const SheetRow = memo(function SheetRow({
             )}
             <span
               className={`${
-                active ? (k === word ? "text-guitar" : k < word ? "text-zinc-100" : "text-zinc-300") : past ? "text-zinc-500" : "text-zinc-300"
+                active ? (k === word ? "text-guitar" : k < word ? "text-zinc-50" : "text-zinc-300") : "text-zinc-300"
               } ${w.uncertain ? "underline decoration-zinc-600 decoration-dotted underline-offset-4" : ""}`}
               title={w.uncertain ? "Unsure, check by ear" : undefined}
             >

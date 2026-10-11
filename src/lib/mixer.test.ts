@@ -53,6 +53,16 @@ describe("mixer", () => {
     expect(matchPreset(withVoice)).toBe("bass-only");
   });
 
+  it("the full mix always brings the vocals back", () => {
+    const quiet = setVocals(applyPreset(defaultMixer(), "no-bass"), false);
+    const full = applyPreset(quiet, "full");
+    expect(effectiveGains(full)).toEqual([1, 1, 1, 1, 1, 1]);
+    expect(matchPreset(full)).toBe("full");
+    // muting the vocals in the full mix leaves the full-mix mode
+    expect(matchPreset(setVocals(full, false))).toBeNull();
+    expect(vocalsOn(setVocals(full, false))).toBe(false);
+  });
+
   it("recovers from missing or malformed stored settings", () => {
     expect(normalizeMixer(undefined)).toEqual(defaultMixer());
     expect(normalizeMixer({ volumes: [1], muted: [], solo: [], master: 1 })).toEqual(defaultMixer());

@@ -56,6 +56,7 @@ export type FolderState =
   | { status: "ready"; name: string; songs: number; busy: string | null; error: string | null; syncedAt: number | null };
 
 let state: FolderState = { status: "checking" };
+const SERVER_STATE: FolderState = { status: "checking" };
 let entries = new Map<string, FolderEntry>();
 let handle: FileSystemDirectoryHandle | null = null;
 const listeners = new Set<() => void>();
@@ -71,7 +72,7 @@ export const folderStore = {
     return () => listeners.delete(listener);
   },
   getSnapshot: () => state,
-  getServerSnapshot: (): FolderState => ({ status: "checking" }),
+  getServerSnapshot: (): FolderState => SERVER_STATE,
 };
 
 /** Songs in the folder (by song id). */

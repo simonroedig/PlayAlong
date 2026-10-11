@@ -42,6 +42,7 @@ body {
     linear-gradient(to bottom, rgb(255 255 255 / 0.015), transparent 420px);
   background-repeat: no-repeat;
   color: var(--color-zinc-100);
+  overflow-x: clip;
 }
 
 ::selection {

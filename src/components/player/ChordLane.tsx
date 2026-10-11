@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useChordPlayhead } from "@/hooks/useChordPlayhead";
 import type { PlayerEngine } from "@/lib/audio/engine";
 import type { ChordAnalysis } from "@/lib/chords/analyze";
@@ -29,6 +29,8 @@ export function ChordLane({
   return <Lane chords={chords} current={chord} duration={duration} onSeek={onSeek} />;
 }
 
+const width_ = (c: DisplayChord, duration: number) => ((Math.min(c.end, duration) - c.start) / duration) * 100;
+
 const Lane = memo(function Lane({
   chords,
   current,
@@ -40,15 +42,26 @@ const Lane = memo(function Lane({
   duration: number;
   onSeek: (seconds: number) => void;
 }) {
+  // Labels are only drawn where they fit (no half-cut chord names).
+  const box = useRef<HTMLDivElement>(null);
+  const [laneWidth, setLaneWidth] = useState(0);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => setLaneWidth(entry.contentRect.width));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   if (duration <= 0) return null;
   return (
-    <div className="relative mt-2 h-7 w-full overflow-hidden rounded-md bg-white/[0.02]" aria-label="Chord timeline">
+    <div ref={box} className="relative mt-2 h-7 w-full overflow-hidden rounded-md bg-white/[0.02]" aria-label="Chord timeline">
       {chords.map((c, i) => {
         if (c.root === null) return null;
         const left = (c.start / duration) * 100;
         const width = ((Math.min(c.end, duration) - c.start) / duration) * 100;
         const h = hue(c.root);
         const active = i === current;
+        const fits = (laneWidth * width_(c, duration)) / 100 >= c.label.length * 6.2 + 5;
         return (
           <button
             key={`${c.startBeat}-${c.label}`}
@@ -63,11 +76,11 @@ const Lane = memo(function Lane({
               left: `${left}%`,
               width: `${width}%`,
               borderColor: `hsl(${h} 70% 62% / ${active ? 0.9 : 0.45})`,
-              background: `hsl(${h} 70% 62% / ${active ? 0.32 : c.uncertain ? 0.05 : 0.12})`,
-              color: active ? "#fafafa" : c.uncertain ? "rgb(161 161 170 / 0.7)" : `hsl(${h} 70% 82%)`,
+              background: `hsl(${h} 70% 62% / ${active ? 0.32 : 0.12})`,
+              color: active ? "#fafafa" : `hsl(${h} 70% 82%)`,
             }}
           >
-            {c.label}
+            {fits ? c.label : ""}
           </button>
         );
       })}

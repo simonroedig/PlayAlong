@@ -1,8 +1,10 @@
 "use client";
 
-import { ListMusic, Loader2, Minus, MoveDown, Plus, RotateCcw, TriangleAlert } from "lucide-react";
+import { Grid3x3, ListMusic, Loader2, Minus, MoveDown, Plus, RotateCcw, TextQuote, TriangleAlert } from "lucide-react";
 import { memo, useMemo, useRef, useState } from "react";
+import { BackToNow } from "@/components/player/BackToNow";
 import { LyricsView } from "@/components/player/LyricsView";
+import { Select } from "@/components/ui/Select";
 import type { ChordState } from "@/hooks/useChords";
 import type { LyricsState } from "@/hooks/useLyrics";
 import { useChordPlayhead } from "@/hooks/useChordPlayhead";
@@ -192,7 +194,7 @@ function ChordChart({
     <>
       <Header>
         <div className="flex flex-wrap items-center gap-2">
-          <div role="radiogroup" aria-label="Chord detail" className="flex rounded-xl bg-white/5 p-0.5 text-xs font-medium">
+          <div role="radiogroup" aria-label="Chord detail" className="flex h-9 items-center rounded-xl border border-white/10 bg-white/[0.04] p-0.5 text-xs font-medium">
             {[
               { simple: true, label: "Simple", hint: "Major and minor chords only" },
               { simple: false, label: "Full", hint: "With 7ths, sus chords and bass notes (slash chords)" },
@@ -204,7 +206,7 @@ function ChordChart({
                 aria-checked={view.simple === o.simple}
                 title={o.hint}
                 onClick={() => onViewChange({ ...view, simple: o.simple })}
-                className={`rounded-[10px] px-2.5 py-1 transition ${
+                className={`h-full rounded-[9px] px-3 transition ${
                   view.simple === o.simple ? "bg-zinc-100 text-ink-950" : "text-zinc-400 hover:text-zinc-100"
                 }`}
               >
@@ -212,7 +214,7 @@ function ChordChart({
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-0.5 rounded-xl bg-white/5 p-0.5 text-xs" title="Show the chord shapes to play with a capo">
+          <div className="flex h-9 items-center gap-0.5 rounded-xl border border-white/10 bg-white/[0.04] p-0.5 text-xs" title="Show the chord shapes to play with a capo">
             <StepButton label="Capo down" onClick={() => onViewChange({ ...view, capo: Math.max(0, view.capo - 1) })} disabled={view.capo === 0}>
               <Minus className="size-3" />
             </StepButton>
@@ -221,18 +223,7 @@ function ChordChart({
               <Plus className="size-3" />
             </StepButton>
           </div>
-          <select
-            aria-label="Guitar tuning"
-            value={view.tuneDown}
-            onChange={(e) => onViewChange({ ...view, tuneDown: Number(e.target.value) })}
-            className="h-7 rounded-xl border-0 bg-white/5 px-2 text-xs font-medium text-zinc-300 outline-none hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-zinc-400"
-          >
-            {TUNINGS.map((t) => (
-              <option key={t.value} value={t.value} className="bg-ink-900">
-                {t.label}
-              </option>
-            ))}
-          </select>
+          <Select label="Guitar tuning" value={view.tuneDown} onChange={(tuneDown) => onViewChange({ ...view, tuneDown })} options={TUNINGS} />
         </div>
       </Header>
 
@@ -268,26 +259,27 @@ function ChordChart({
         bar={currentBar >= 0 ? bars[currentBar].number : null}
       />
 
-      <div className="mt-4 flex items-center justify-between gap-2">
-        <div role="tablist" aria-label="Show" className="flex rounded-xl bg-white/5 p-0.5 text-xs font-medium">
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+        <div role="tablist" aria-label="Show" className="flex rounded-2xl border border-white/10 bg-white/[0.04] p-1 text-sm font-semibold">
           {(
             [
-              ["chart", "Chart"],
-              ["lyrics", "Lyrics"],
+              ["chart", "Chord chart", Grid3x3],
+              ["lyrics", "Chords + lyrics", TextQuote],
             ] as const
-          ).map(([id, label]) => (
+          ).map(([id, label, Icon]) => (
             <button
               key={id}
               type="button"
               role="tab"
               aria-selected={tab === id}
               onClick={() => setTab(id)}
-              className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1 transition ${
-                tab === id ? "bg-zinc-100 text-ink-950" : "text-zinc-400 hover:text-zinc-100"
+              className={`inline-flex h-10 items-center gap-2 rounded-xl px-4 transition ${
+                tab === id ? "bg-zinc-50 text-ink-950 shadow" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
               }`}
             >
+              <Icon className="size-4" />
               {label}
-              {id === "lyrics" && lyrics.status === "running" && <Loader2 className="size-3 animate-spin" />}
+              {id === "lyrics" && lyrics.status === "running" && <Loader2 className="size-3.5 animate-spin" />}
             </button>
           ))}
         </div>
@@ -306,7 +298,7 @@ function ChordChart({
           />
           <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
             <span>
-              Detected automatically. <span className="text-zinc-400 italic">grey italic</span> chords are uncertain. Click a bar
+              Detected automatically. Chords in <span className="text-zinc-300 italic">italics</span> are uncertain. Click a bar
               to jump there, Shift+click another bar to loop the passage.
             </span>
             <button
@@ -362,14 +354,14 @@ export function FollowToggle({ follow, onToggle }: { follow: boolean; onToggle: 
       aria-checked={follow}
       onClick={onToggle}
       title={follow ? "The chart scrolls along with the music. Click to stop" : "Scroll the chart along with the music"}
-      className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition ${
-        follow ? "bg-white/10 text-zinc-100" : "text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+      className={`inline-flex h-11 items-center gap-2.5 rounded-2xl border px-4 text-sm font-semibold transition ${
+        follow ? "border-white/15 bg-white/[0.07] text-zinc-50" : "border-white/10 text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
       }`}
     >
-      <MoveDown className="size-3.5" />
-      Follow
-      <span className={`h-3.5 w-6 rounded-full p-0.5 transition ${follow ? "bg-guitar" : "bg-white/15"}`} aria-hidden>
-        <span className={`block size-2.5 rounded-full bg-white transition ${follow ? "translate-x-2.5" : ""}`} />
+      <MoveDown className="size-4" />
+      Follow the music
+      <span className={`h-5 w-9 rounded-full p-0.5 transition ${follow ? "bg-guitar" : "bg-white/15"}`} aria-hidden>
+        <span className={`block size-4 rounded-full bg-white shadow transition ${follow ? "translate-x-4" : ""}`} />
       </span>
     </button>
   );
@@ -383,7 +375,7 @@ function StepButton({ label, onClick, disabled, children }: { label: string; onC
       title={label}
       onClick={onClick}
       disabled={disabled}
-      className="grid size-6 place-items-center rounded-[9px] text-zinc-400 transition hover:bg-white/10 hover:text-zinc-100 disabled:opacity-30"
+      className="grid size-8 place-items-center rounded-[9px] text-zinc-400 transition hover:bg-white/10 hover:text-zinc-100 disabled:opacity-30"
     >
       {children}
     </button>
@@ -405,13 +397,14 @@ function NowNext({
   beatsPerBar: number;
   bar: number | null;
 }) {
+  const counting = beatsToNext !== null && beatsToNext > 0 && beatsToNext <= beatsPerBar;
   return (
-    <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-3">
+    <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-4 sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-8 sm:p-5">
       <div className="min-w-0">
-        <div className="text-[11px] font-medium tracking-wider text-zinc-500 uppercase">Now</div>
+        <div className="text-[11px] font-semibold tracking-[0.16em] text-zinc-400 uppercase">Now</div>
         <div
-          className={`truncate text-5xl font-semibold tracking-tight sm:text-6xl ${
-            current?.uncertain ? "text-zinc-400 italic" : "text-zinc-50"
+          className={`overflow-visible pr-[0.15em] text-6xl leading-none font-bold tracking-tight whitespace-nowrap text-zinc-50 sm:text-7xl ${
+            current?.uncertain ? "italic" : ""
           }`}
           aria-live="off"
           title={current?.uncertain ? "Uncertain, check by ear" : undefined}
@@ -419,21 +412,28 @@ function NowNext({
           {current?.label ?? "·"}
         </div>
       </div>
-      <div className="min-w-0 pb-1">
-        <div className="text-[11px] font-medium tracking-wider text-zinc-500 uppercase">
+      <div className="min-w-0 border-white/10 sm:border-l sm:pl-8">
+        <div className="text-[11px] font-semibold tracking-[0.16em] text-zinc-400 uppercase">
           Next{beatsToNext !== null && beatsToNext > 0 ? ` · in ${beatsToNext} ${beatsToNext === 1 ? "beat" : "beats"}` : ""}
         </div>
-        <div className={`truncate text-2xl font-semibold sm:text-3xl ${next?.uncertain ? "text-zinc-500 italic" : "text-zinc-300"}`}>
+        <div className={`pr-[0.15em] text-3xl font-semibold whitespace-nowrap text-zinc-300 sm:text-4xl ${next?.uncertain ? "italic" : ""}`}>
           {next?.label ?? "·"}
         </div>
+        {counting && (
+          <div className="mt-2 flex gap-1" aria-hidden>
+            {Array.from({ length: beatsToNext }, (_, i) => (
+              <span key={i} className="h-1 w-5 rounded-full bg-zinc-400/60" />
+            ))}
+          </div>
+        )}
       </div>
-      <div className="ml-auto flex items-center gap-3 pb-2">
-        <div className="flex gap-1.5" aria-label={beat >= 0 ? `Beat ${beat + 1} of ${beatsPerBar}` : undefined}>
+      <div className="flex items-center gap-3">
+        <div className="flex gap-2" aria-label={beat >= 0 ? `Beat ${beat + 1} of ${beatsPerBar}` : undefined}>
           {Array.from({ length: beatsPerBar }, (_, i) => (
             <span
               key={i}
-              className={`size-2.5 rounded-full transition-colors duration-75 ${
-                i === beat ? (i === 0 ? "bg-guitar" : "bg-zinc-100") : "bg-white/10"
+              className={`size-3.5 rounded-full transition-colors duration-75 ${
+                i === beat ? (i === 0 ? "bg-guitar shadow-[0_0_12px_rgba(251,146,60,0.7)]" : "bg-zinc-50") : "bg-white/10"
               }`}
             />
           ))}
@@ -462,14 +462,19 @@ const ChordSheet = memo(function ChordSheet({
   onLoop: (region: LoopRegion) => void;
 }) {
   const anchor = useRef<number | null>(null);
-  const { ref, onUserScroll } = useFollowScroll<HTMLDivElement>(follow, currentBar >= 0 ? `[data-bar="${currentBar}"]` : null);
+  const { ref, onUserScroll, onScroll, away, recenter } = useFollowScroll<HTMLDivElement>(
+    follow,
+    currentBar >= 0 ? `[data-bar="${currentBar}"]` : null,
+  );
 
   return (
+    <div className="relative mt-3">
     <div
       ref={ref}
       onWheel={onUserScroll}
       onTouchMove={onUserScroll}
-      className="relative mt-2 max-h-[19rem] overflow-y-auto rounded-2xl border border-white/5 bg-black/20 p-1.5"
+      onScroll={onScroll}
+      className="relative max-h-[19rem] overflow-y-auto rounded-2xl border border-white/5 bg-black/20 p-1.5"
     >
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
         {bars.map((bar, i) => {
@@ -494,7 +499,7 @@ const ChordSheet = memo(function ChordSheet({
               title={`Bar ${bar.number}: click to jump, Shift+click to loop from the last clicked bar`}
               className={`relative flex h-14 items-stretch overflow-hidden rounded-xl border text-left transition ${
                 active
-                  ? "border-guitar/50 bg-white/[0.07]"
+                  ? "border-guitar/70 bg-guitar/[0.08] shadow-[0_0_0_1px_rgba(251,146,60,0.35)]"
                   : looped
                     ? "border-white/25 bg-white/[0.05] hover:bg-white/[0.07]"
                     : "border-white/5 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]"
@@ -504,22 +509,17 @@ const ChordSheet = memo(function ChordSheet({
               {bar.cells.length === 0 && <span className="flex-1" />}
               {bar.cells.map((cell) => {
                 const playing = active && cell.chordIndex === currentChord;
+                const narrow = cell.beats < 3 && bar.cells.length > 1;
                 return (
                   <span
                     key={cell.offset}
                     style={{ flexGrow: cell.beats, flexBasis: 0 }}
-                    className={`flex min-w-0 items-end px-1.5 pb-1.5 ${cell.offset > 0 ? "border-l border-white/5" : ""}`}
+                    className={`flex min-w-0 items-end pb-1.5 ${narrow ? "pl-1" : "pl-1.5"} ${cell.offset > 0 ? "border-l border-white/5" : ""}`}
                   >
                     <span
-                      className={`truncate text-base font-semibold sm:text-lg ${
-                        playing
-                          ? "text-guitar"
-                          : cell.uncertain
-                            ? "text-zinc-500 italic"
-                            : cell.continued
-                              ? "text-zinc-600"
-                              : "text-zinc-200"
-                      }`}
+                      className={`min-w-0 truncate pr-[0.2em] font-semibold tracking-tight ${narrow ? "text-sm sm:text-base" : "text-base sm:text-lg"} ${
+                        playing ? "text-guitar" : cell.continued ? "text-zinc-400" : "text-zinc-100"
+                      } ${cell.uncertain ? "italic" : ""}`}
                       title={cell.uncertain ? "Uncertain, check by ear" : undefined}
                     >
                       {cell.label}
@@ -531,6 +531,8 @@ const ChordSheet = memo(function ChordSheet({
           );
         })}
       </div>
+    </div>
+    <BackToNow show={away} onClick={recenter} />
     </div>
   );
 });

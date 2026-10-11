@@ -1,3 +1,4 @@
+import { HeroBackdrop } from "@/components/HeroBackdrop";
 import { HowItWorks } from "@/components/HowItWorks";
 import { Library } from "@/components/Library";
 import { SongImport } from "@/components/SongImport";
@@ -8,7 +9,8 @@ const RULE = [STEM_INFO.vocals, STEM_INFO.drums, STEM_INFO.piano, STEM_INFO.guit
 export default function Home() {
   return (
     <>
-      <section className="pt-12 pb-8 sm:pt-20">
+      <section className="relative isolate pt-10 pb-8 sm:pt-16">
+        <HeroBackdrop />
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-xs font-medium tracking-[0.18em] text-zinc-500 uppercase">For guitarists and bassists</p>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-balance text-zinc-50 sm:text-6xl">

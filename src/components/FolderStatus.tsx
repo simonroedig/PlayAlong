@@ -1,7 +1,8 @@
 "use client";
 
-import { Check, FolderOpen, FolderPlus, FolderSync, HardDrive, Loader2, RefreshCw, TriangleAlert, Unplug } from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { FolderOpen, FolderPlus, FolderSync, HardDrive, Loader2, RefreshCw, TriangleAlert, Unplug } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { HeaderPopover } from "@/components/HeaderPopover";
 import {
   connectFolder,
   disconnectFolder,
@@ -16,15 +17,14 @@ export function useFolder(): FolderState {
   return useSyncExternalStore(folderStore.subscribe, folderStore.getSnapshot, folderStore.getServerSnapshot);
 }
 
-const chip =
-  "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition focus-visible:outline-2 focus-visible:outline-white/40";
+const primary =
+  "inline-flex items-center gap-1.5 rounded-xl bg-zinc-50 px-3 py-2 text-xs font-semibold text-ink-950 hover:bg-white disabled:opacity-50";
+const secondary = "inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-50";
 
-/** Where the library is kept: this browser only, or a folder on the computer (header, top right). */
+/** Where songs are kept (this browser, or a folder on the computer), with the why and how. Header, left. */
 export function FolderStatus() {
   const folder = useFolder();
-  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void initFolder();
@@ -33,18 +33,6 @@ export function FolderStatus() {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: PointerEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("pointerdown", close);
-    document.addEventListener("keydown", esc);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("keydown", esc);
-    };
-  }, [open]);
 
   const run = (action: () => Promise<void>) => async () => {
     setError(null);
@@ -55,115 +43,117 @@ export function FolderStatus() {
     }
   };
 
-  if (folder.status === "checking") return <span className="h-8 w-28" aria-hidden />;
+  if (folder.status === "checking") return <span className="h-10 w-32" aria-hidden />;
 
-  if (folder.status === "unsupported") {
-    return (
-      <span
-        className={`${chip} border-white/10 bg-white/[0.03] text-zinc-400`}
-        title="Songs are kept in this browser. Saving to a folder needs Chrome or Edge on a computer."
-      >
-        <HardDrive className="size-3.5" />
-        <span className="hidden sm:inline">In this browser</span>
-      </span>
-    );
-  }
-
-  if (folder.status === "none") {
-    return (
-      <button
-        type="button"
-        onClick={run(connectFolder)}
-        className={`${chip} border-white/15 bg-white/[0.04] text-zinc-200 hover:border-white/25 hover:bg-white/[0.08]`}
-        title="Keep your songs in a folder on this computer, e.g. inside OneDrive or Dropbox to use them on all your computers"
-      >
-        <FolderPlus className="size-3.5" />
-        <span className="hidden sm:inline">Save to a folder</span>
-      </button>
-    );
-  }
-
-  if (folder.status === "permission") {
-    return (
-      <button
-        type="button"
-        onClick={run(reconnectFolder)}
-        className={`${chip} border-sky-300/30 bg-sky-300/10 text-sky-100 hover:bg-sky-300/15`}
-        title={`Allow PlayAlong to open your “${folder.name}” folder again`}
-      >
-        <FolderSync className="size-3.5" />
-        <span className="hidden sm:inline">Open folder “{folder.name}”</span>
-      </button>
-    );
-  }
+  const ready = folder.status === "ready";
+  const trigger = ready ? (
+    <>
+      {folder.busy ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : folder.error ? (
+        <TriangleAlert className="size-4 text-red-300" />
+      ) : (
+        <span className="relative grid place-items-center">
+          <FolderOpen className="size-4" />
+          <span className="absolute -right-1 -bottom-0.5 size-2 rounded-full bg-emerald-400 ring-2 ring-ink-900" />
+        </span>
+      )}
+      <span className="hidden max-w-44 truncate sm:inline">Folder · {folder.name}</span>
+    </>
+  ) : folder.status === "permission" ? (
+    <>
+      <FolderSync className="size-4 text-sky-300" />
+      <span className="hidden sm:inline">Reopen your folder</span>
+    </>
+  ) : (
+    <>
+      <HardDrive className="size-4 text-zinc-400" />
+      <span className="hidden sm:inline">Saved in this browser</span>
+    </>
+  );
 
   return (
-    <div ref={box} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className={`${chip} border-white/10 bg-white/[0.04] text-zinc-200 hover:border-white/20 hover:bg-white/[0.07]`}
-        title={folder.busy ?? `Your songs are saved in the folder “${folder.name}”`}
-      >
-        {folder.busy ? (
-          <Loader2 className="size-3.5 animate-spin" />
-        ) : folder.error ? (
-          <TriangleAlert className="size-3.5 text-red-300" />
-        ) : (
-          <span className="relative grid place-items-center">
-            <FolderOpen className="size-3.5" />
-            <span className="absolute -right-1 -bottom-0.5 size-1.5 rounded-full bg-emerald-400 ring-2 ring-ink-950" />
-          </span>
-        )}
-        <span className="hidden max-w-40 truncate sm:inline">{folder.name}</span>
-      </button>
-      {open && (
-        <div className="absolute right-0 z-40 mt-2 w-80 rounded-2xl border border-white/10 bg-ink-850 p-4 text-sm shadow-2xl shadow-black/60">
-          <p className="flex items-center gap-2 font-medium text-zinc-100">
-            <Check className="size-4 text-emerald-400" /> Saving to “{folder.name}”
-          </p>
-          <p className="mt-1.5 text-xs leading-relaxed text-zinc-400">
-            {folder.songs} {folder.songs === 1 ? "song" : "songs"} in the folder, one .playalong file each with the stems,
-            chords and lyrics. Put the folder in OneDrive, Dropbox or iCloud Drive and your songs open on every computer.
-          </p>
-          {folder.busy && (
-            <p className="mt-3 flex items-center gap-2 text-xs text-zinc-300">
-              <Loader2 className="size-3.5 animate-spin" /> {folder.busy}
+    <HeaderPopover align="left" label="Where your songs are saved" trigger={trigger}>
+      <p className="font-semibold text-zinc-50">Your songs stay with you</p>
+      <p className="mt-2 leading-relaxed text-zinc-400">
+        Nothing you add is uploaded anywhere. PlayAlong keeps your songs with their stems, chords and lyrics either inside
+        this browser or as files in a folder on your computer.
+      </p>
+
+      <div className="mt-4 rounded-xl bg-white/[0.04] p-3 text-xs leading-relaxed text-zinc-300">
+        {folder.status === "unsupported" && (
+          <>
+            <p className="flex items-center gap-2 font-medium text-zinc-100">
+              <HardDrive className="size-3.5" /> Right now: inside this browser
             </p>
-          )}
-          {(folder.error || error) && (
-            <p className="mt-3 rounded-lg bg-red-500/10 px-2.5 py-1.5 text-xs text-red-300">{folder.error ?? error}</p>
-          )}
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={run(syncFolder)}
-              disabled={!!folder.busy}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-medium text-zinc-100 hover:bg-white/15 disabled:opacity-50"
-            >
-              <RefreshCw className="size-3.5" /> Sync now
+            <p className="mt-1.5 text-zinc-400">
+              They stay here until you clear this site&apos;s data. To keep them as files you can back up or sync with
+              OneDrive or Dropbox, open PlayAlong in Chrome or Edge on a computer: those can save to a folder.
+            </p>
+          </>
+        )}
+        {folder.status === "none" && (
+          <>
+            <p className="flex items-center gap-2 font-medium text-zinc-100">
+              <HardDrive className="size-3.5" /> Right now: inside this browser
+            </p>
+            <p className="mt-1.5 text-zinc-400">
+              Choose a folder and every song is also saved there as a .playalong file. Put the folder in OneDrive, Dropbox
+              or iCloud Drive and your songs open on all your computers.
+            </p>
+            <button type="button" onClick={run(connectFolder)} className={`${primary} mt-3`}>
+              <FolderPlus className="size-3.5" /> Choose a folder
             </button>
-            <button
-              type="button"
-              onClick={run(connectFolder)}
-              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/5"
-            >
-              <FolderOpen className="size-3.5" /> Other folder
-            </button>
-            <button
-              type="button"
-              onClick={run(async () => {
-                await disconnectFolder();
-                setOpen(false);
-              })}
-              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
-            >
-              <Unplug className="size-3.5" /> Stop saving
-            </button>
-          </div>
-        </div>
+          </>
+        )}
+        {folder.status === "permission" && (
+          <>
+            <p className="flex items-center gap-2 font-medium text-zinc-100">
+              <FolderSync className="size-3.5" /> Your folder “{folder.name}”
+            </p>
+            <p className="mt-1.5 text-zinc-400">After a browser restart, the browser asks once more before PlayAlong may open it.</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <button type="button" onClick={run(reconnectFolder)} className={primary}>
+                <FolderOpen className="size-3.5" /> Open folder
+              </button>
+              <button type="button" onClick={run(disconnectFolder)} className={secondary}>
+                <Unplug className="size-3.5" /> Stop using it
+              </button>
+            </div>
+          </>
+        )}
+        {ready && (
+          <>
+            <p className="flex items-center gap-2 font-medium text-zinc-100">
+              <FolderOpen className="size-3.5" /> Saving to “{folder.name}”
+            </p>
+            <p className="mt-1.5 text-zinc-400">
+              {folder.songs} {folder.songs === 1 ? "song" : "songs"} in the folder, one .playalong file each. In OneDrive,
+              Dropbox or iCloud Drive they open on every computer.
+            </p>
+            {folder.busy && (
+              <p className="mt-2 flex items-center gap-2 text-zinc-200">
+                <Loader2 className="size-3.5 animate-spin" /> {folder.busy}
+              </p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <button type="button" onClick={run(syncFolder)} disabled={!!folder.busy} className={primary}>
+                <RefreshCw className="size-3.5" /> Sync now
+              </button>
+              <button type="button" onClick={run(connectFolder)} className={secondary}>
+                <FolderOpen className="size-3.5" /> Other folder
+              </button>
+              <button type="button" onClick={run(disconnectFolder)} className={secondary}>
+                <Unplug className="size-3.5" /> Stop saving
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {((ready && folder.error) || error) && (
+        <p className="mt-3 rounded-lg bg-red-500/10 px-2.5 py-1.5 text-xs text-red-300">{error ?? (ready ? folder.error : null)}</p>
       )}
-    </div>
+    </HeaderPopover>
   );
 }

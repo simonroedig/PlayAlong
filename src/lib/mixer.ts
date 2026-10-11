@@ -75,8 +75,9 @@ export function applyPreset(current: MixerSettings, id: PresetId, vocals = vocal
   if (id === "no-bass") next.muted[b] = true;
   if (id === "guitar-only") next.solo[g] = true;
   if (id === "bass-only") next.solo[b] = true;
+  // The full mix is everything, vocals included.
   if (id === "guitar-only" || id === "bass-only") next.solo[v] = vocals;
-  else next.muted[v] = !vocals;
+  else next.muted[v] = id !== "full" && !vocals;
   return next;
 }
 
@@ -84,6 +85,7 @@ export function applyPreset(current: MixerSettings, id: PresetId, vocals = vocal
 export function matchPreset(m: MixerSettings): PresetId | null {
   const vocals = vocalsOn(m);
   for (const preset of PRESETS) {
+    if (preset.id === "full" && !vocals) continue;
     const p = applyPreset(m, preset.id, vocals);
     if (p.muted.every((x, i) => x === m.muted[i]) && p.solo.every((x, i) => x === m.solo[i])) return preset.id;
   }
@@ -93,7 +95,7 @@ export function matchPreset(m: MixerSettings): PresetId | null {
 /** Turns the vocals on or off, keeping the practice mode (or the custom mix). */
 export function setVocals(m: MixerSettings, on: boolean): MixerSettings {
   const preset = matchPreset(m);
-  if (preset) return applyPreset(m, preset, on);
+  if (preset && !(preset === "full" && !on)) return applyPreset(m, preset, on);
   const v = stemIndex("vocals");
   const next = { ...m, muted: [...m.muted], solo: [...m.solo] };
   if (m.solo.some(Boolean)) next.solo[v] = on;

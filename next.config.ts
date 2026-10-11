@@ -6,6 +6,8 @@ const ortVersion: string = JSON.parse(
 ).version;
 
 const nextConfig: NextConfig = {
+  // Let phones and other computers on the local network open the dev server (http://192.168.x.y:3000 etc.).
+  allowedDevOrigins: ["10.*.*.*", "172.*.*.*", "192.168.*.*", "*.local"],
   env: {
     // scripts/setup.mjs copies the runtime to public/ort/<version>/
     NEXT_PUBLIC_ORT_VERSION: ortVersion,
