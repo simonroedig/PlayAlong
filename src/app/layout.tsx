@@ -4,10 +4,15 @@ import Link from "next/link";
 import { EngineBadge } from "@/components/EngineBadge";
 import { EnvironmentNotice } from "@/components/EnvironmentNotice";
 import { FolderStatus } from "@/components/FolderStatus";
+import { GitHubIcon } from "@/components/icons";
 import { BrandMark } from "@/components/BrandMark";
 import { LeaveGuard } from "@/components/LeaveGuard";
 import { SiteFooter } from "@/components/SiteFooter";
+import { REPO_URL, SHOWCASE } from "@/lib/features";
 import "./globals.css";
+
+const CHIP_SHAPE = "inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition";
+const CHIP = `${CHIP_SHAPE} border-white/10 bg-ink-900 text-zinc-200 hover:border-white/20 hover:bg-ink-800`;
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -30,13 +35,25 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <header className="relative z-30">
           <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 pt-4 pb-2 sm:px-6">
             <div className="justify-self-start">
-              <FolderStatus />
+              {SHOWCASE ? (
+                <a href={REPO_URL} target="_blank" rel="noreferrer" aria-label="PlayAlong on GitHub" className={CHIP}>
+                  <GitHubIcon className="size-4" /> <span className="hidden sm:inline">GitHub</span>
+                </a>
+              ) : (
+                <FolderStatus />
+              )}
             </div>
             <Link href="/" aria-label="PlayAlong home" className="justify-self-center py-2">
               <BrandMark />
             </Link>
             <div className="justify-self-end">
-              <EngineBadge />
+              {SHOWCASE ? (
+                <Link href="/#get" className={`${CHIP_SHAPE} border-white/30 bg-zinc-50 font-semibold text-ink-950 hover:bg-white`}>
+                  Get it <span className="hidden sm:inline">free</span>
+                </Link>
+              ) : (
+                <EngineBadge />
+              )}
             </div>
           </div>
         </header>

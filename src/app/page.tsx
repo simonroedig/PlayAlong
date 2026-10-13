@@ -5,6 +5,11 @@ import { HowItWorks } from "@/components/HowItWorks";
 import { Library } from "@/components/Library";
 import { SongImport } from "@/components/SongImport";
 import { WhyFree } from "@/components/WhyFree";
+import { ArrowDown } from "lucide-react";
+import { GetPlayAlong } from "@/components/GetPlayAlong";
+import { GitHubIcon } from "@/components/icons";
+import { Showcase } from "@/components/Showcase";
+import { REPO_URL, SHOWCASE } from "@/lib/features";
 import { STEM_INFO } from "@/lib/mixer";
 
 const RULE = [STEM_INFO.vocals, STEM_INFO.drums, STEM_INFO.piano, STEM_INFO.guitar, STEM_INFO.bass, STEM_INFO.other];
@@ -45,14 +50,39 @@ export default function Home() {
           </p>
         </div>
 
-        <div style={{ "--delay": "0.28s" } as CSSProperties} className="rise mx-auto mt-10 max-w-4xl">
-          <SongImport />
-        </div>
+        {SHOWCASE ? (
+          <div style={{ "--delay": "0.28s" } as CSSProperties} className="rise mt-9 flex flex-wrap items-center justify-center gap-3">
+            <a
+              href="#get"
+              className="inline-flex h-12 items-center gap-2 rounded-2xl bg-zinc-50 px-6 text-[15px] font-semibold text-ink-950 shadow-lg shadow-white/10 transition hover:bg-white"
+            >
+              <ArrowDown className="size-5" /> Get it free
+            </a>
+            <a
+              href={REPO_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-12 items-center gap-2 rounded-2xl border border-white/15 bg-white/[0.04] px-6 text-[15px] font-semibold text-zinc-100 transition hover:border-white/30 hover:bg-white/[0.08]"
+            >
+              <GitHubIcon className="size-5" /> View on GitHub
+            </a>
+          </div>
+        ) : (
+          <div style={{ "--delay": "0.28s" } as CSSProperties} className="rise mx-auto mt-10 max-w-4xl">
+            <SongImport />
+          </div>
+        )}
       </section>
 
-      <Reveal>
-        <Library />
-      </Reveal>
+      {SHOWCASE ? (
+        <Reveal>
+          <Showcase />
+        </Reveal>
+      ) : (
+        <Reveal>
+          <Library />
+        </Reveal>
+      )}
 
       <Reveal>
         <HowItWorks />
@@ -61,6 +91,12 @@ export default function Home() {
       <Reveal>
         <WhyFree />
       </Reveal>
+
+      {SHOWCASE && (
+        <Reveal>
+          <GetPlayAlong />
+        </Reveal>
+      )}
     </>
   );
 }

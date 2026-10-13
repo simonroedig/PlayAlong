@@ -28,13 +28,19 @@ completely and take over the part yourself.
 
 ## Quick start
 
-Requirements: **Node.js 22+** and a recent desktop browser (Chrome / Edge 121+ for WebGPU; Firefox and Safari work too —
-separation then uses WebGPU where the browser supports it, otherwise the CPU).
+PlayAlong runs on your own computer: it serves the app locally and the AI works in your browser. You need
+**Node.js 22 or newer** ([nodejs.org](https://nodejs.org), the LTS version) and a recent desktop browser (Chrome or
+Edge use your graphics card through WebGPU; Firefox and Safari work too, on the processor where WebGPU is missing).
 
 ```bash
+git clone https://github.com/simonroedig/PlayAlong.git
+cd PlayAlong
 npm install
 npm run dev        # first run downloads the models and yt-dlp (see below), then starts http://localhost:3000
 ```
+
+No git? [Download the ZIP](https://github.com/simonroedig/PlayAlong/archive/refs/heads/main.zip), unpack it, open a
+terminal in the folder and run the last two commands.
 
 The first run downloads the separation model (~115 MB), the lyrics model (~560 MB download, 1 GB on disk) and yt-dlp
 into the project; later runs start right away. Set `PLAYALONG_SKIP_LYRICS_MODEL=1` to leave out the lyrics model.
@@ -183,31 +189,25 @@ pip install torch demucs==4.0.1 onnx onnxruntime
 python scripts/export_model.py     # writes public/models/htdemucs_6s.onnx and its checksum to .env.local
 ```
 
-## Hosting it for free (e.g. Vercel)
+## The public site (showcase)
 
-The heavy work runs in the visitor's browser, so a host only has to serve files. Two things change for a public copy:
+The hosted site is a showcase: the landing page with screenshots, the interactive explainer and the guide above, but
+no import, player or server routes in use. Everyone runs the real thing on their own computer, so the host serves a few
+megabytes of static pages and nothing else (no YouTube downloads, no model traffic).
 
-- **No YouTube import.** It needs yt-dlp on a server, data-centre IPs get blocked by YouTube, and German courts treat
-  bypassing YouTube's download protection as unlawful (OLG Hamburg 5 U 54/23, 2024). Set
-  `NEXT_PUBLIC_YOUTUBE_IMPORT=off`: the page then offers file upload only and the YouTube routes answer 404. YouTube
-  links keep working when you run PlayAlong on your own computer.
-- **Models from a CDN, not from the host.** Every new visitor downloads the separation model (110 MB) and, for lyrics,
-  1 GB. Vercel's free plan includes 100 GB of traffic a month, so put the models on Hugging Face (free, sends CORS
-  headers): run `npm run setup` locally, upload `public/models/htdemucs_6s.onnx` and the folder
-  `public/models/whisper-turbo/` to a Hugging Face model repository, and point the app at them.
-
-Environment variables for the Vercel project:
+On Vercel (or any Next.js host) set these environment variables for the project:
 
 | Variable | Value |
 | --- | --- |
-| `NEXT_PUBLIC_YOUTUBE_IMPORT` | `off` |
-| `PLAYALONG_SKIP_DOWNLOADS` | `1` (the build only copies ONNX Runtime) |
-| `NEXT_PUBLIC_MODEL_URL` | `https://huggingface.co/<you>/<repo>/resolve/main/htdemucs_6s.onnx` |
-| `NEXT_PUBLIC_LYRICS_MODEL_URL` | `https://huggingface.co/<you>/<repo>/resolve/main/whisper-turbo/` |
+| `NEXT_PUBLIC_SHOWCASE` | `1` |
+| `PLAYALONG_SKIP_DOWNLOADS` | `1` (no models or yt-dlp during the build) |
 
-The chord models (7 MB each) and ONNX Runtime (about 25 MB) are served by the host itself. Afterwards, check once in
-the browser that a song separates and transcribes; the pages are cross-origin isolated, so every cross-origin file
-must come with CORS headers.
+Song links on the showcase redirect to the guide. Locally (`npm run dev`) nothing changes.
+
+Hosting the full app instead also works: set `NEXT_PUBLIC_YOUTUBE_IMPORT=off` (YouTube needs yt-dlp on the server,
+data-centre IPs are blocked by YouTube, and German courts treat bypassing its download protection as unlawful: OLG
+Hamburg 5 U 54/23), and serve the models from a CDN such as Hugging Face with `NEXT_PUBLIC_MODEL_URL` and
+`NEXT_PUBLIC_LYRICS_MODEL_URL`, since every visitor downloads about 1.2 GB of models.
 
 ## Keyboard shortcuts
 
