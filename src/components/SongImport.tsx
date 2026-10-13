@@ -138,9 +138,10 @@ export function SongImport() {
             <p className="mt-auto flex items-start gap-2 pt-4 text-xs text-zinc-400">
               <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
               <span>
-                YouTube links need <code className="font-mono text-zinc-200">yt-dlp</code> on the server
-                {health?.ytdlp.error ? ` (${health.ytdlp.error})` : ""}. Run{" "}
-                <code className="font-mono text-zinc-200">npm run setup</code>. Audio files always work.
+                The YouTube helper (<code className="font-mono text-zinc-200">yt-dlp</code>) isn&apos;t ready
+                {health?.ytdlp.error ? ` (${health.ytdlp.error})` : ""}. PlayAlong downloads it by itself when it starts:
+                restart it with <code className="font-mono text-zinc-200">npm run dev</code>, or run{" "}
+                <code className="font-mono text-zinc-200">npm run setup</code>. Nothing else is needed. Audio files always work.
               </span>
             </p>
           ) : (

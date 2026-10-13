@@ -9,8 +9,17 @@ import { ArrowDown } from "lucide-react";
 import { GetPlayAlong } from "@/components/GetPlayAlong";
 import { GitHubIcon } from "@/components/icons";
 import { Showcase } from "@/components/Showcase";
-import { REPO_URL, SHOWCASE } from "@/lib/features";
+import { Screenshot } from "@/components/showcase/Screenshot";
+import { SHOTS } from "@/components/showcase/shots";
+import { REPO_URL, SHOWCASE, YOUTUBE_IMPORT } from "@/lib/features";
 import { STEM_INFO } from "@/lib/mixer";
+
+const HIGHLIGHTS = [
+  { label: "Six instruments, each on its own", color: STEM_INFO.guitar.color },
+  { label: "Chords for guitar and bass", color: STEM_INFO.bass.color },
+  { label: "Lyrics in time", color: STEM_INFO.vocals.color },
+  { label: "Free and private", color: STEM_INFO.other.color },
+];
 
 const RULE = [STEM_INFO.vocals, STEM_INFO.drums, STEM_INFO.piano, STEM_INFO.guitar, STEM_INFO.bass, STEM_INFO.other];
 
@@ -45,9 +54,20 @@ export default function Home() {
             of any song.
           </h1>
           <p style={{ "--delay": "0.18s" } as CSSProperties} className="rise mx-auto mt-6 max-w-2xl text-base text-pretty text-zinc-400 sm:text-lg">
-            Drop in a song and PlayAlong takes it apart into guitar, bass, drums, vocals and keys, writes out the chords and
-            the lyrics, and lets you switch any part off. Then you plug in and play it.
+            {YOUTUBE_IMPORT || SHOWCASE ? "Paste a YouTube link or drop in a song." : "Drop in a song."} PlayAlong takes it apart
+            into guitar, bass, drums, vocals and keys, and writes out the chords for guitar and bass and the lyrics. All done by
+            AI, free, right on your computer.
           </p>
+          {SHOWCASE && (
+            <ul style={{ "--delay": "0.24s" } as CSSProperties} className="rise mt-7 flex flex-wrap justify-center gap-2 text-sm">
+              {HIGHLIGHTS.map(({ label, color }) => (
+                <li key={label} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-zinc-300">
+                  <span className="size-2 rounded-full" style={{ background: color }} aria-hidden />
+                  {label}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {SHOWCASE ? (
@@ -75,18 +95,26 @@ export default function Home() {
       </section>
 
       {SHOWCASE ? (
-        <Reveal>
+        <>
+          <figure style={{ "--delay": "0.4s" } as CSSProperties} className="rise relative mx-auto mt-4 w-full max-w-5xl">
+            <div aria-hidden className="hero-glow absolute inset-x-0 -top-10 -bottom-4 sm:-inset-x-10 -z-10 rounded-[4rem] opacity-40 blur-3xl" />
+            <Screenshot {...SHOTS.hero} priority />
+            <figcaption className="mt-4 text-center text-sm text-zinc-500">
+              A song in PlayAlong: taken apart into six instruments, the guitar switched off, the chords rolling in.
+            </figcaption>
+          </figure>
           <Showcase />
-        </Reveal>
+        </>
       ) : (
-        <Reveal>
-          <Library />
-        </Reveal>
+        <>
+          <Reveal>
+            <Library />
+          </Reveal>
+          <Reveal>
+            <HowItWorks />
+          </Reveal>
+        </>
       )}
-
-      <Reveal>
-        <HowItWorks />
-      </Reveal>
 
       <Reveal>
         <WhyFree />

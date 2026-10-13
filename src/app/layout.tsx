@@ -5,6 +5,7 @@ import { EngineBadge } from "@/components/EngineBadge";
 import { EnvironmentNotice } from "@/components/EnvironmentNotice";
 import { FolderStatus } from "@/components/FolderStatus";
 import { GitHubIcon } from "@/components/icons";
+import { GetItLink } from "@/components/showcase/GetItLink";
 import { BrandMark } from "@/components/BrandMark";
 import { LeaveGuard } from "@/components/LeaveGuard";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -48,9 +49,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </Link>
             <div className="justify-self-end">
               {SHOWCASE ? (
-                <Link href="/#get" className={`${CHIP_SHAPE} border-white/30 bg-zinc-50 font-semibold text-ink-950 hover:bg-white`}>
-                  Get it <span className="hidden sm:inline">free</span>
-                </Link>
+                <GetItLink className={`${CHIP_SHAPE} border-white/30 bg-zinc-50 font-semibold text-ink-950 hover:bg-white`}>
+                  <span className="sm:hidden">Get it</span>
+                  <span className="hidden sm:inline">Get it free</span>
+                </GetItLink>
               ) : (
                 <EngineBadge />
               )}

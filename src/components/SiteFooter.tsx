@@ -48,12 +48,11 @@ export function SiteFooter() {
             Simon Roedig
             <ArrowUpRight className="size-3.5 text-zinc-500 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-zinc-200" />
           </a>
-          <p className="mt-1 text-zinc-500">simonroedig.com</p>
           <a
             href={REPO_URL}
             target="_blank"
             rel="noreferrer"
-            className="mt-4 inline-flex items-center gap-2 text-zinc-300 transition hover:text-zinc-50"
+            className="mt-3 flex w-fit items-center gap-2 text-zinc-300 transition hover:text-zinc-50"
           >
             <GitHubIcon className="size-4" /> Code on GitHub
           </a>

@@ -52,9 +52,17 @@ export function GetPlayAlong() {
             <a href="https://nodejs.org" target="_blank" rel="noreferrer" className="text-zinc-100 underline decoration-white/30 underline-offset-4 hover:decoration-white/70">
               nodejs.org
             </a>{" "}
-            (the LTS version). You also need git, or download the ZIP instead.
+            (the LTS version), and{" "}
+            <a href="https://git-scm.com/downloads" target="_blank" rel="noreferrer" className="text-zinc-100 underline decoration-white/30 underline-offset-4 hover:decoration-white/70">
+              git
+            </a>{" "}
+            if you don&apos;t have it (or download the ZIP instead). Nothing else: no Python, no account.
           </Step>
           <Step n={2} title="Open a terminal and run">
+            <span className="block">
+              Windows: <span className="text-zinc-300">Terminal or PowerShell</span> from the Start menu. Mac:{" "}
+              <span className="text-zinc-300">Terminal</span> (in Utilities). Linux: any terminal.
+            </span>
             <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-black/50">
               <div className="flex items-center justify-between border-b border-white/5 px-3 py-1.5">
                 <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500">
@@ -75,7 +83,12 @@ export function GetPlayAlong() {
           <Step n={3} title="Open localhost:3000">
             In Chrome or Edge, at{" "}
             <code className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-zinc-200">http://localhost:3000</code>. The first
-            start downloads the AI models once (about 700 MB); after that it starts right away.
+            start downloads the AI models and the YouTube helper by itself (about 700 MB, once); after that it starts right
+            away.
+            <span className="mt-2 block text-zinc-500">
+              To stop it, press Ctrl + C in the terminal. Next time, open a terminal in the PlayAlong folder and run{" "}
+              <code className="font-mono text-zinc-300">npm run dev</code> again.
+            </span>
           </Step>
         </ol>
 
@@ -105,8 +118,8 @@ export function GetPlayAlong() {
           <div className="flex items-start gap-4 rounded-3xl border border-white/5 bg-black/20 p-5 text-sm text-zinc-400">
             <Globe className="mt-0.5 size-5 shrink-0 text-zinc-500" />
             <p>
-              Works on Windows, macOS and Linux. A graphics card makes it fast (Chrome or Edge use it through WebGPU);
-              without one it runs on the processor and takes a few minutes per song.
+              Works on Windows, macOS and Linux, with the same steps. A graphics card makes it fast (Chrome or Edge use it
+              through WebGPU); without one it runs on the processor and takes a few minutes per song.
             </p>
           </div>
         </div>
