@@ -183,6 +183,32 @@ pip install torch demucs==4.0.1 onnx onnxruntime
 python scripts/export_model.py     # writes public/models/htdemucs_6s.onnx and its checksum to .env.local
 ```
 
+## Hosting it for free (e.g. Vercel)
+
+The heavy work runs in the visitor's browser, so a host only has to serve files. Two things change for a public copy:
+
+- **No YouTube import.** It needs yt-dlp on a server, data-centre IPs get blocked by YouTube, and German courts treat
+  bypassing YouTube's download protection as unlawful (OLG Hamburg 5 U 54/23, 2024). Set
+  `NEXT_PUBLIC_YOUTUBE_IMPORT=off`: the page then offers file upload only and the YouTube routes answer 404. YouTube
+  links keep working when you run PlayAlong on your own computer.
+- **Models from a CDN, not from the host.** Every new visitor downloads the separation model (110 MB) and, for lyrics,
+  1 GB. Vercel's free plan includes 100 GB of traffic a month, so put the models on Hugging Face (free, sends CORS
+  headers): run `npm run setup` locally, upload `public/models/htdemucs_6s.onnx` and the folder
+  `public/models/whisper-turbo/` to a Hugging Face model repository, and point the app at them.
+
+Environment variables for the Vercel project:
+
+| Variable | Value |
+| --- | --- |
+| `NEXT_PUBLIC_YOUTUBE_IMPORT` | `off` |
+| `PLAYALONG_SKIP_DOWNLOADS` | `1` (the build only copies ONNX Runtime) |
+| `NEXT_PUBLIC_MODEL_URL` | `https://huggingface.co/<you>/<repo>/resolve/main/htdemucs_6s.onnx` |
+| `NEXT_PUBLIC_LYRICS_MODEL_URL` | `https://huggingface.co/<you>/<repo>/resolve/main/whisper-turbo/` |
+
+The chord models (7 MB each) and ONNX Runtime (about 25 MB) are served by the host itself. Afterwards, check once in
+the browser that a song separates and transcribes; the pages are cross-origin isolated, so every cross-origin file
+must come with CORS headers.
+
 ## Keyboard shortcuts
 
 | Key | Action |

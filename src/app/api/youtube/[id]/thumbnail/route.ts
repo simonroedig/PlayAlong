@@ -1,3 +1,4 @@
+import { YOUTUBE_IMPORT } from "@/lib/features";
 import { cachedAudio } from "@/lib/server/ytdlp";
 import { isYouTubeId } from "@/lib/youtube";
 
@@ -6,6 +7,7 @@ import { isYouTubeId } from "@/lib/youtube";
  * embed it (i.ytimg.com does not send CORP headers).
  */
 export async function GET(_request: Request, ctx: RouteContext<"/api/youtube/[id]/thumbnail">) {
+  if (!YOUTUBE_IMPORT) return Response.json({ error: "YouTube import is turned off on this server" }, { status: 404 });
   const { id } = await ctx.params;
   if (!isYouTubeId(id)) return new Response(null, { status: 400 });
 

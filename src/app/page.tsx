@@ -4,6 +4,7 @@ import { Reveal } from "@/components/Reveal";
 import { HowItWorks } from "@/components/HowItWorks";
 import { Library } from "@/components/Library";
 import { SongImport } from "@/components/SongImport";
+import { WhyFree } from "@/components/WhyFree";
 import { STEM_INFO } from "@/lib/mixer";
 
 const RULE = [STEM_INFO.vocals, STEM_INFO.drums, STEM_INFO.piano, STEM_INFO.guitar, STEM_INFO.bass, STEM_INFO.other];
@@ -55,6 +56,10 @@ export default function Home() {
 
       <Reveal>
         <HowItWorks />
+      </Reveal>
+
+      <Reveal>
+        <WhyFree />
       </Reveal>
     </>
   );

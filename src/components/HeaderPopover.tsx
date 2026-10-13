@@ -47,10 +47,10 @@ export function HeaderPopover({
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-label={label}
-          className="relative inline-flex h-10 items-center gap-2 rounded-full bg-ink-900 px-3.5 text-sm font-medium text-zinc-200 transition hover:bg-ink-800 sm:px-4"
+          className="relative inline-flex h-10 items-center gap-2 rounded-full bg-ink-900 px-3 text-sm font-medium text-zinc-200 transition hover:bg-ink-800 sm:px-4"
         >
           {trigger}
-          <ChevronDown className={`size-3.5 text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`} />
+          <ChevronDown className={`hidden size-3.5 text-zinc-500 transition-transform sm:block ${open ? "rotate-180" : ""}`} />
         </button>
       </span>
       {open && (

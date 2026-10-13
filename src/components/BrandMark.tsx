@@ -6,44 +6,42 @@ import { LogoMark } from "@/components/Logo";
 import { activityStore, playingStore } from "@/lib/activity";
 
 /**
- * The header logo: the stem-stripe play button with "PLAYALONG" curving
- * underneath. It slides in on every page change, ripples on hover (and fills
- * in the missing part), ripples slowly while the device is working and
- * dances while music plays.
+ * The header wordmark: "Play" [stem-stripe play button] "Along". The words
+ * slide apart on hover while the stripes ripple and the missing part fills
+ * in; on every page change the stripes slide in again; they ripple slowly
+ * while the device is working and dance while music plays.
  */
-export function BrandMark({ className = "" }: { className?: string }) {
+export function BrandMark() {
   const id = useId();
   const pathname = usePathname();
   const playing = useSyncExternalStore(playingStore.subscribe, playingStore.getSnapshot, playingStore.getServerSnapshot);
   const busy = useSyncExternalStore(activityStore.subscribe, activityStore.getSnapshot, activityStore.getServerSnapshot) !== null;
+  const word = "text-[21px] leading-none font-extrabold tracking-tight text-zinc-50 transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] sm:text-[34px]";
   return (
-    <svg
-      viewBox="0 0 160 116"
-      className={`brand overflow-visible ${className}`}
-      role="img"
-      aria-label="PlayAlong"
-      data-playing={playing}
-      data-busy={busy && !playing}
-    >
-      <defs>
-        <radialGradient id={`${id}-glow`} cx="50%" cy="50%" r="50%">
-          <stop offset="0" stopColor="rgb(255 255 255 / 0.12)" />
-          <stop offset="1" stopColor="rgb(255 255 255 / 0)" />
-        </radialGradient>
-        <path id={`${id}-arc`} d="M 4 76 Q 80 124 156 76" fill="none" />
-      </defs>
-      <ellipse cx="80" cy="42" rx="56" ry="44" fill={`url(#${id}-glow)`} />
-      {/* re-mounted per page so the stripes slide in again */}
-      <g transform="translate(29 -2) scale(2.75)">
+    <span className="brand group flex items-center gap-1 sm:gap-2" data-playing={playing} data-busy={busy && !playing}>
+      <span key={`play-${pathname}`} className={`rise ${word} group-hover:-translate-x-1.5`}>
+        Play
+      </span>
+      <svg viewBox="7 3 24 26" aria-hidden className="size-10 overflow-visible sm:size-16">
+        <defs>
+          <radialGradient id={`${id}-glow`} cx="50%" cy="50%" r="50%">
+            <stop offset="0" stopColor="rgb(255 255 255 / 0.14)" />
+            <stop offset="1" stopColor="rgb(255 255 255 / 0)" />
+          </radialGradient>
+        </defs>
+        <circle cx="19" cy="16" r="15" fill={`url(#${id}-glow)`} />
+        {/* re-mounted per page so the stripes slide in again */}
         <g key={pathname} className="brand-mark">
           <LogoMark clip={`${id}-clip`} animated />
         </g>
-      </g>
-      <text fill="#fafafa" fontSize="16" fontWeight="800" letterSpacing="3.2" style={{ fontFamily: "var(--font-sans)" }}>
-        <textPath href={`#${id}-arc`} startOffset="50%" textAnchor="middle">
-          PLAYALONG
-        </textPath>
-      </text>
-    </svg>
+      </svg>
+      <span
+        key={`along-${pathname}`}
+        className={`rise ${word} group-hover:translate-x-1.5`}
+        style={{ "--delay": "0.12s" } as React.CSSProperties}
+      >
+        Along
+      </span>
+    </span>
   );
 }

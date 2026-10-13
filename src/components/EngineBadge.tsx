@@ -23,7 +23,6 @@ export function EngineBadge() {
         <>
           <Icon className={`size-4 ${activity ? "text-zinc-50" : gpu ? "text-zinc-100" : "text-zinc-400"}`} />
           <span className="hidden sm:inline">{activity ? `${activity} · ${gpu ? "GPU" : "CPU"}` : gpu ? "Your GPU" : "Your CPU"}</span>
-          <span className="sm:hidden">{gpu ? "GPU" : "CPU"}</span>
         </>
       }
     >

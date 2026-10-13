@@ -1,3 +1,4 @@
+import { YOUTUBE_IMPORT } from "@/lib/features";
 import { fetchAudio } from "@/lib/server/ytdlp";
 import { parseYouTubeId } from "@/lib/youtube";
 import { AUDIO_FORMATS, type AudioFormat, type YouTubeEvent } from "@/lib/youtube-types";
@@ -9,6 +10,7 @@ import { AUDIO_FORMATS, type AudioFormat, type YouTubeEvent } from "@/lib/youtub
  * /api/youtube/[id]/audio?format=….
  */
 export async function POST(request: Request) {
+  if (!YOUTUBE_IMPORT) return Response.json({ error: "YouTube import is turned off on this server" }, { status: 404 });
   let url: unknown;
   let format: unknown;
   try {

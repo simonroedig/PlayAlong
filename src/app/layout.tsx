@@ -32,8 +32,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <div className="justify-self-start">
               <FolderStatus />
             </div>
-            <Link href="/" aria-label="PlayAlong home" className="justify-self-center transition hover:opacity-90">
-              <BrandMark className="h-[96px] w-[137px] sm:h-[124px] sm:w-[177px]" />
+            <Link href="/" aria-label="PlayAlong home" className="justify-self-center py-2">
+              <BrandMark />
             </Link>
             <div className="justify-self-end">
               <EngineBadge />

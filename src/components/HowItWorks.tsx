@@ -3,6 +3,7 @@
 import { FolderOpen, Laptop, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { STEM_ICONS } from "@/components/player/Mixer";
+import { YOUTUBE_IMPORT } from "@/lib/features";
 import { DISPLAY_ORDER, STEM_INFO } from "@/lib/mixer";
 import type { SourceName } from "@/lib/separation/model";
 
@@ -55,7 +56,7 @@ const SHEET: { chord?: string; word: string; at: number }[][] = [
 ];
 
 const STEPS = [
-  { title: "Bring a song", text: "Paste a YouTube link or drop an audio file." },
+  { title: "Bring a song", text: YOUTUBE_IMPORT ? "Paste a YouTube link or drop an audio file." : "Drop an audio file: MP3, WAV, FLAC and more." },
   { title: "AI takes it apart", text: "Guitar, bass, drums, vocals, keys and the rest become six tracks, right on your computer." },
   { title: "Chords and lyrics appear", text: "The chords with a beat counter, and the lyrics word by word, in sync with the song." },
   { title: "Switch any part off", text: "Mute the guitar and play it yourself, or hear the bass alone to learn the line. Loop and slow down the hard bits." },

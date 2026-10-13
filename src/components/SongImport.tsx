@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, type DragEvent, type FormEvent } from "react";
 import { VideoLinkIcon } from "@/components/icons";
 import { useHealth } from "@/hooks/useCapabilities";
+import { YOUTUBE_IMPORT } from "@/lib/features";
 import { ACCEPTED_AUDIO, importFile, youtubeSongId } from "@/lib/songs";
 import { parseYouTubeId } from "@/lib/youtube";
 
@@ -17,7 +18,7 @@ export function SongImport() {
   const [busy, setBusy] = useState<"link" | "file" | null>(null);
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const ytdlpMissing = health !== null && !health.ytdlp.available;
+  const ytdlpMissing = YOUTUBE_IMPORT && health !== null && !health.ytdlp.available;
 
   const open = (input: string) => {
     const id = parseYouTubeId(input);
@@ -81,8 +82,9 @@ export function SongImport() {
 
   return (
     <div>
-      <div className="relative grid gap-3 md:grid-cols-2 md:gap-5">
+      <div className={`relative grid gap-3 md:gap-5 ${YOUTUBE_IMPORT ? "md:grid-cols-2" : ""}`}>
         {/* YouTube */}
+        {YOUTUBE_IMPORT && (
         <form
           onSubmit={onSubmit}
           className="flex flex-col rounded-3xl border border-white/10 bg-ink-900/80 p-5 shadow-2xl shadow-black/30 sm:p-6"
@@ -145,13 +147,16 @@ export function SongImport() {
             <p className="mt-auto pt-4 text-xs text-zinc-500">The audio is fetched once and then kept with your songs.</p>
           )}
         </form>
+        )}
 
+        {YOUTUBE_IMPORT && (
         <span
           aria-hidden
           className="pointer-events-none absolute top-1/2 left-1/2 z-10 hidden size-10 -translate-1/2 place-items-center rounded-full border border-white/10 bg-ink-950 text-xs font-medium text-zinc-400 md:grid"
         >
           or
         </span>
+        )}
 
         {/* File */}
         <button
@@ -182,6 +187,12 @@ export function SongImport() {
         </button>
         <input ref={fileInput} type="file" accept={ACCEPTED_AUDIO} className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
       </div>
+
+      {!YOUTUBE_IMPORT && (
+        <p className="mt-3 text-center text-xs text-zinc-500">
+          This online version works with audio files. Pasting YouTube links works when you run PlayAlong on your own computer.
+        </p>
+      )}
 
       {error && (
         <p role="alert" className="mt-3 flex items-start gap-2 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-300">

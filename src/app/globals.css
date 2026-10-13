@@ -333,3 +333,39 @@ input[type="range"].slider:focus-visible {
     transition: none;
   }
 }
+
+/* "Why it's free": a song travelling to a paid cloud vs. splitting on your device. */
+@keyframes travel {
+  0% {
+    left: 0%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+@keyframes split {
+  0%,
+  15% {
+    transform: translateY(0) scaleX(0.55);
+    opacity: 0.35;
+  }
+  55%,
+  100% {
+    transform: translateY(var(--y)) scaleX(1);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .split-bar {
+    animation: none !important;
+    transform: translateY(var(--y));
+  }
+}
