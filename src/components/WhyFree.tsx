@@ -1,4 +1,4 @@
-import { Cloud, CreditCard, Gauge, HardDriveDownload, Info, Laptop, ShieldCheck, Upload } from "lucide-react";
+import { Check, Cloud, CreditCard, Gauge, HardDriveDownload, Info, Laptop, ShieldCheck, Upload, X } from "lucide-react";
 import type { CSSProperties } from "react";
 import { DISPLAY_ORDER, STEM_INFO } from "@/lib/mixer";
 
@@ -36,11 +36,16 @@ export function WhyFree() {
         </p>
       </div>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
-        {/* the usual way */}
-        <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6">
-          <p className="text-sm font-medium text-zinc-400">The usual way</p>
-          <div className="mt-6 flex items-center gap-3">
+      <div className="relative mt-8 grid gap-4 md:grid-cols-2">
+        {/* the usual way, crossed out */}
+        <div className="rounded-3xl border border-white/5 bg-white/[0.015] p-6">
+          <p className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 font-medium text-red-300">
+              <X className="size-3.5" /> Other stem splitters
+            </span>
+            <span className="text-zinc-600">not PlayAlong</span>
+          </p>
+          <div className="relative mt-6 flex items-center gap-3 opacity-50 grayscale">
             <Node icon={Upload} label="Your song" />
             <div className="relative h-px flex-1 border-t border-dashed border-white/20">
               <span className="absolute -top-1 size-2 -translate-x-1/2 rounded-full bg-zinc-300 motion-safe:animate-[travel_2.6s_ease-in-out_infinite]" />
@@ -51,12 +56,29 @@ export function WhyFree() {
             </div>
             <Node icon={CreditCard} label="Per song or month" />
           </div>
-          <p className="mt-6 text-sm text-zinc-500">Upload, wait in a queue, pay for the GPU time.</p>
+          <ul className="mt-6 flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-500">
+            {["Upload", "Wait in a queue", "Pay for the GPU time"].map((step) => (
+              <li key={step} className="line-through decoration-red-400/80 decoration-2">
+                {step}
+              </li>
+            ))}
+          </ul>
         </div>
 
+        <span
+          aria-hidden
+          className="absolute top-1/2 left-1/2 z-10 hidden size-10 -translate-1/2 place-items-center rounded-full border border-white/10 bg-ink-950 text-xs font-medium text-zinc-400 md:grid"
+        >
+          vs
+        </span>
+
         {/* PlayAlong */}
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6">
-          <p className="text-sm font-medium text-zinc-100">PlayAlong</p>
+        <div className="relative overflow-hidden rounded-3xl border border-emerald-400/25 bg-white/[0.04] p-6 shadow-[0_0_40px_-12px_rgba(74,222,128,0.35)]">
+          <p className="flex items-center gap-2 text-sm">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 font-medium text-emerald-300">
+              <Check className="size-3.5" /> PlayAlong
+            </span>
+          </p>
           <div className="mt-6 flex items-center gap-5">
             <Node icon={Laptop} label="Your device" bright />
             <div className="relative h-24 flex-1" aria-hidden>
