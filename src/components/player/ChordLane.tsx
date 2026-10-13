@@ -131,13 +131,22 @@ export function ChordLane({
     return () => el.removeEventListener("wheel", onWheel);
   }, [clampView]);
 
-  // Clicking the overview moves the view there.
-  const onOverview = (e: React.PointerEvent) => {
+  // Clicking or dragging on the overview moves the view there.
+  const overviewDrag = useRef(false);
+  const lookAt = (e: React.PointerEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const time = ((e.clientX - rect.left) / rect.width) * duration;
     setFollow(false);
     view.current = clampView(time - span / 2, span);
   };
+  const onOverviewDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    overviewDrag.current = true;
+    lookAt(e);
+  };
+  const onOverviewMove = (e: React.PointerEvent) => overviewDrag.current && lookAt(e);
+  const endOverviewDrag = () => (overviewDrag.current = false);
 
   if (duration <= 0) return null;
   const pxPerSecond = stripWidth / span;
@@ -199,9 +208,12 @@ export function ChordLane({
 
       <div
         ref={overview}
-        onPointerDown={onOverview}
-        className="relative mt-1.5 h-2.5 w-full cursor-pointer overflow-hidden rounded-full bg-white/[0.04]"
-        title="The whole song: click to look there"
+        onPointerDown={onOverviewDown}
+        onPointerMove={onOverviewMove}
+        onPointerUp={endOverviewDrag}
+        onPointerCancel={endOverviewDrag}
+        className="relative mt-1.5 h-2.5 w-full cursor-grab touch-none overflow-hidden rounded-full bg-white/[0.04] select-none active:cursor-grabbing"
+        title="The whole song: click or drag to look there"
       >
         {chords.map((c) =>
           c.root === null ? null : (
