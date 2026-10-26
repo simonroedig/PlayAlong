@@ -175,6 +175,14 @@ describe("lyrics with chords", () => {
     expect(second.words[0].chords.map((c) => c.label)).toEqual(["C"]);
   });
 
+  it("starts a new instrumental row where the next song begins", () => {
+    const set = [chord("G", 0, 10), chord("D", 10, 20), { ...chord("A", 20, 30), part: 1 }, { ...chord("E", 30, 40), part: 1 }];
+    const sheet = lyricsSheet([line("Last words of the first song", 2)], set, 40);
+    const rows = sheet.filter((l) => l.kind === "instrumental" && l.start >= 5);
+    expect(rows.map((r) => (r.kind === "instrumental" ? r.chords.map((c) => c.label) : []))).toEqual([["D"], ["A", "E"]]);
+    expect(rows[1].start).toBe(20);
+  });
+
   it("follows the playhead line by line and word by word", () => {
     const sheet = lyricsSheet(lines, chords, 30);
     expect(sheetPosition(sheet, 0.5)).toEqual({ line: -1, word: -1, sung: -1, next: -1 });

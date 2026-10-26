@@ -470,7 +470,7 @@ function NowNext({
             />
           ))}
         </div>
-        {bar !== null && <span className="w-14 font-mono text-xs text-zinc-500 tabular-nums">bar {bar}</span>}
+        {bar !== null && <span className="w-14 font-mono text-xs text-zinc-500 tabular-nums">{bar ? `bar ${bar}` : "pick-up"}</span>}
       </div>
     </div>
   );

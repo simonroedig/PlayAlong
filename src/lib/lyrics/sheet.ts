@@ -87,7 +87,18 @@ export function lyricsSheet(lines: readonly LyricLine[], chords: readonly Displa
         used.add(i);
       }
     }
-    if (items.length) out.push({ kind: "instrumental", start: Math.max(from, list[items[0].index].start), end: to, chords: items });
+    // One row per song: a live set's break must not mix two songs in one row.
+    const groups: SheetChord[][] = [];
+    for (const item of items) {
+      const last = groups[groups.length - 1];
+      if (last && list[last[0].index].part === list[item.index].part) last.push(item);
+      else groups.push([item]);
+    }
+    groups.forEach((group, g) => {
+      const start = list[group[0].index].start;
+      const end = g + 1 < groups.length ? list[groups[g + 1][0].index].start : to;
+      out.push({ kind: "instrumental", start: g === 0 ? Math.max(from, start) : start, end, chords: group });
+    });
   };
 
   let previousEnd = 0;
@@ -114,6 +125,8 @@ export function lyricsSheet(lines: readonly LyricLine[], chords: readonly Displa
     for (let i = 0; i < list.length; i++) {
       const c = list[i];
       if (used.has(i) || c.root === null || c.start < lineStart - 1e-6 || c.start >= until) continue;
+      // The next song's first chords belong to its own rows.
+      if (sounding >= 0 && c.part !== list[sounding].part) continue;
       let target = 0;
       for (let k = 0; k < words.length; k++) if (words[k].start <= c.start + 0.05) target = k;
       words[target].chords.push(sheetChord(list, i, false));
