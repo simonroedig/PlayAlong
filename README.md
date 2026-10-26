@@ -118,7 +118,8 @@ right away. To stop it press `Ctrl + C`; next time just run `npm run dev` in the
 - **Accuracy:** the instruments, chords and lyrics come from AI models and are a very good starting point, not a
   verified transcription. Dense, distorted guitars can leave some bleed; unsure chords are shown in italics and unsure
   words are underlined.
-- **Memory:** songs are limited to 15 minutes; lyrics need about 3 GB of free memory.
+- **Long recordings:** up to 30 minutes. A live set or medley is split into its songs, each with its own key and
+  tempo. Lyrics need about 3 GB of free memory.
 - **Open it via `localhost`:** browsers turn off the audio and AI features on plain-HTTP network addresses.
 - **Your music:** use songs you have the right to use.
 

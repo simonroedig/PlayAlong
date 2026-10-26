@@ -17,7 +17,7 @@ const CACHE_DIR = path.resolve(
   /*turbopackIgnore: true*/ process.env.PLAYALONG_CACHE_DIR ?? path.join(/*turbopackIgnore: true*/ process.cwd(), ".cache", "youtube"),
 );
 const MAX_CACHED_FILES = 40;
-export const MAX_DURATION_MINUTES = Number(process.env.PLAYALONG_MAX_DURATION_MIN ?? 15);
+export const MAX_DURATION_MINUTES = Number(process.env.PLAYALONG_MAX_DURATION_MIN ?? 30);
 
 /** yt-dlp format selectors; each falls back to whatever audio exists. */
 const FORMAT_SELECTOR: Record<AudioFormat, string> = {
@@ -285,7 +285,7 @@ export function fetchAudio(id: string, format: AudioFormat, listener: Listener):
   child.on("close", (code) => {
     if (!inFlight.has(key)) return;
     if (tooLong) {
-      finish({ type: "error", message: `This video is longer than ${MAX_DURATION_MINUTES} minutes. Pick a single song.` });
+      finish({ type: "error", message: `This video is longer than ${MAX_DURATION_MINUTES} minutes. Pick a shorter one (a live set of a few songs works).` });
       return;
     }
     if (code !== 0 || !file || !meta) {

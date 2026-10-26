@@ -1,9 +1,10 @@
 "use client";
 
 import { Grid3x3, ListMusic, Loader2, Minus, MoveDown, Plus, RotateCcw, TextQuote, TriangleAlert } from "lucide-react";
-import { memo, useMemo, useRef, useState } from "react";
+import { Fragment, memo, useMemo, useRef, useState } from "react";
 import { BackToNow } from "@/components/player/BackToNow";
 import { LyricsView } from "@/components/player/LyricsView";
+import { KeyChangeTag, SongHeading, SongSwitcher, clock } from "@/components/player/SongParts";
 import { Select } from "@/components/ui/Select";
 import { StemProgress } from "@/components/ui/StemProgress";
 import { STEM_INFO } from "@/lib/mixer";
@@ -12,14 +13,17 @@ import type { LyricsState } from "@/hooks/useLyrics";
 import { useChordPlayhead } from "@/hooks/useChordPlayhead";
 import { readFollowPreference, useFollowScroll, writeFollowPreference } from "@/hooks/useFollowScroll";
 import type { LoopRegion, PlayerEngine } from "@/lib/audio/engine";
-import type { ChordAnalysis } from "@/lib/chords/analyze";
+import type { ChordAnalysis, SongPart } from "@/lib/chords/analyze";
 import type { ChordPhase } from "@/lib/chords/protocol";
 import {
   beatInBar,
   chordBars,
   displayKey,
+  keyAt,
+  partOfBeat,
   referencePitch,
   shapeShift,
+  songParts,
   type Bar,
   type ChordView,
   type DisplayChord,
@@ -179,6 +183,13 @@ function ChordChart({
   const next = position.chord + 1 < chords.length ? chords[position.chord + 1] : null;
   const beatsToNext = next && position.beat >= 0 ? next.startBeat - position.beat : null;
   const beatNow = position.beat >= 0 ? beatInBar(analysis, position.beat) : -1;
+  // A live set or medley holds several songs, each with its own key, tempo and metre.
+  const parts = useMemo(() => songParts(analysis), [analysis]);
+  const partIndex = position.beat >= 0 ? partOfBeat(parts, position.beat) : 0;
+  const part = parts[partIndex];
+  const now = position.beat >= 0 ? analysis.beats[position.beat] : 0;
+  const partKey = keyAt(part, now);
+  const nextChange = part.keyChanges.find((c) => c.start > now) ?? null;
 
   const [follow, setFollow] = useState(readFollowPreference);
   const toggleFollow = () =>
@@ -197,8 +208,8 @@ function ChordChart({
   };
 
   const shift = shapeShift(view);
-  const soundingKey = analysis.key ? keyName(analysis.key) : null;
-  const shapeKey = displayKey(analysis.key, view);
+  const soundingKey = partKey ? keyName(partKey) : null;
+  const shapeKey = displayKey(partKey, view);
   const cents = analysis.tuningCents;
 
   return (
@@ -238,7 +249,10 @@ function ChordChart({
         </div>
       </Header>
 
+      {parts.length > 1 && <SongSwitcher parts={parts} current={partIndex} onSeek={onSeek} />}
+
       <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-500">
+        {parts.length > 1 && <span className="font-semibold text-zinc-300">Song {partIndex + 1}</span>}
         {soundingKey && (
           <span>
             Key <span className="text-zinc-300">{soundingKey}</span>
@@ -251,8 +265,13 @@ function ChordChart({
           </span>
         )}
         <span>
-          <span className="text-zinc-300">{Math.round(analysis.bpm)}</span> BPM · {analysis.beatsPerBar}/4
+          <span className="text-zinc-300">{Math.round(part.bpm)}</span> BPM · {part.beatsPerBar}/4
         </span>
+        {nextChange && (
+          <span title="The song changes key here">
+            Key change to <span className="text-zinc-300">{keyName(nextChange.key)}</span> at {clock(nextChange.start)}
+          </span>
+        )}
         {Math.abs(cents) >= 10 && (
           <span title="The recording is not tuned to A = 440 Hz. Tune your instrument to this reference to match it.">
             Recording {cents > 0 ? "+" : "−"}
@@ -266,7 +285,7 @@ function ChordChart({
         next={next}
         beatsToNext={beatsToNext}
         beat={beatNow}
-        beatsPerBar={analysis.beatsPerBar}
+        beatsPerBar={part.beatsPerBar}
         bar={currentBar >= 0 ? bars[currentBar].number : null}
       />
 
@@ -300,6 +319,7 @@ function ChordChart({
         <>
           <ChordSheet
             bars={bars}
+            parts={parts}
             currentBar={currentBar}
             currentChord={position.chord}
             follow={follow}
@@ -324,6 +344,7 @@ function ChordChart({
       ) : (
         <LyricsView
           engine={engine}
+          parts={parts}
           state={lyrics}
           chords={chords}
           currentChord={position.chord}
@@ -457,6 +478,7 @@ function NowNext({
 
 const ChordSheet = memo(function ChordSheet({
   bars,
+  parts,
   currentBar,
   currentChord,
   follow,
@@ -465,6 +487,7 @@ const ChordSheet = memo(function ChordSheet({
   onLoop,
 }: {
   bars: Bar[];
+  parts: SongPart[];
   currentBar: number;
   currentChord: number;
   follow: boolean;
@@ -490,11 +513,14 @@ const ChordSheet = memo(function ChordSheet({
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
         {bars.map((bar, i) => {
           const active = i === currentBar;
+          const firstOfSong = parts.length > 1 && (i === 0 || bars[i - 1].part !== bar.part);
+          const change = parts[bar.part]?.keyChanges.find((c) => c.startBeat >= bar.startBeat && c.startBeat < bar.startBeat + bar.beats) ?? null;
           // Bars mostly inside the loop.
           const looped = loop !== null && Math.min(bar.end, loop.end) - Math.max(bar.start, loop.start) > 0.5 * (bar.end - bar.start);
           return (
+            <Fragment key={bar.startBeat}>
+            {firstOfSong && <SongHeading part={parts[bar.part]} index={bar.part} />}
             <button
-              key={bar.startBeat}
               type="button"
               data-bar={i}
               onClick={(e) => {
@@ -517,6 +543,7 @@ const ChordSheet = memo(function ChordSheet({
               }`}
             >
               <span className="absolute top-1 left-1.5 font-mono text-[9px] text-zinc-600">{bar.number || "pick-up"}</span>
+              {change && <KeyChangeTag value={change.key} />}
               {bar.cells.length === 0 && <span className="flex-1" />}
               {bar.cells.map((cell) => {
                 const playing = active && cell.chordIndex === currentChord;
@@ -539,6 +566,7 @@ const ChordSheet = memo(function ChordSheet({
                 );
               })}
             </button>
+            </Fragment>
           );
         })}
       </div>
@@ -547,3 +575,4 @@ const ChordSheet = memo(function ChordSheet({
     </div>
   );
 });
+

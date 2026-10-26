@@ -130,19 +130,39 @@ export function lyricsSheet(lines: readonly LyricLine[], chords: readonly Displa
   return out;
 }
 
-/** Index of the sheet line and word at `time` (line: last started; word: last started in that line). */
-export function sheetPosition(lines: readonly SheetLine[], time: number): { line: number; word: number } {
+export interface SheetPosition {
+  line: number;
+  /** The word being sung, -1 for none (a pause, or the line has ended). */
+  word: number;
+  /** The last word that has started: it and everything before it is sung. */
+  sung: number;
+  /** In a pause within the line: the word that comes next, else -1. */
+  next: number;
+}
+
+/** A gap between two words this long (seconds) is a pause: no word lights up during it. */
+const PAUSE = 0.35;
+
+/** Where `time` is on the sheet: the line, the word being sung, and the next word during a pause. */
+export function sheetPosition(lines: readonly SheetLine[], time: number): SheetPosition {
   let line = -1;
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].start <= time) line = i;
     else break;
   }
-  if (line < 0) return { line: -1, word: -1 };
+  const none = { word: -1, sung: -1, next: -1 };
+  if (line < 0) return { line: -1, ...none };
   const current = lines[line];
-  if (current.kind !== "lyrics") return { line, word: -1 };
-  let word = -1;
-  for (let k = 0; k < current.words.length; k++) if (current.words[k].start <= time) word = k;
+  if (current.kind !== "lyrics") return { line, ...none };
+  const { words } = current;
+  let sung = -1;
+  for (let k = 0; k < words.length; k++) if (words[k].start <= time) sung = k;
+  if (sung < 0) return { line, word: -1, sung: -1, next: 0 };
+  const w = words[sung];
+  const following = words[sung + 1];
+  // A pause in the middle of the line: the last word is over, the next one hasn't started.
+  if (following && time > w.end + 0.12 && following.start - w.end >= PAUSE) return { line, word: -1, sung, next: sung + 1 };
   // After the last word has ended, nothing is being sung.
-  if (word === current.words.length - 1 && time > current.words[word].end + 0.4) word = -1;
-  return { line, word };
+  if (!following && time > w.end + 0.4) return { line, word: -1, sung, next: -1 };
+  return { line, word: sung, sung, next: -1 };
 }

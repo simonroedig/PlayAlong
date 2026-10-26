@@ -256,17 +256,17 @@ export function refineBeats(beats: number[], env: Float32Array, window: number):
  * Extends a beat sequence to cover [0, duration] using the local period at
  * either end, so every moment of the song falls between two beats.
  */
-export function extendBeats(beatTimes: number[], duration: number, fallbackPeriod: number): number[] {
+export function extendBeats(beatTimes: number[], duration: number, fallbackPeriod: number, start = 0): number[] {
   const beats = [...beatTimes];
   if (beats.length < 2) {
     const out: number[] = [];
-    for (let t = 0; t < duration; t += fallbackPeriod) out.push(t);
+    for (let t = start; t < duration; t += fallbackPeriod) out.push(t);
     return out;
   }
   const headPeriod = Math.max(0.2, beats[Math.min(4, beats.length - 1)] - beats[0]) / Math.min(4, beats.length - 1);
   const tailPeriod =
     Math.max(0.2, beats[beats.length - 1] - beats[Math.max(0, beats.length - 5)]) / Math.min(4, beats.length - 1);
-  while (beats[0] - headPeriod > -headPeriod * 0.5 && beats[0] > 0.05) beats.unshift(Math.max(0, beats[0] - headPeriod));
+  while (beats[0] - headPeriod > start - headPeriod * 0.5 && beats[0] > start + 0.05) beats.unshift(Math.max(start, beats[0] - headPeriod));
   while (beats[beats.length - 1] + tailPeriod < duration) beats.push(beats[beats.length - 1] + tailPeriod);
   return beats;
 }

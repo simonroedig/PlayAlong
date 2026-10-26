@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { alignToVoice, voiceLevels } from "@/lib/lyrics/align";
 import { startLyricsTranscription, type LyricsProgressInfo } from "@/lib/lyrics/client";
 import { LYRICS_VERSION, type LyricsAnalysis } from "@/lib/lyrics/transcribe";
+import { SAMPLE_RATE, SOURCES } from "@/lib/separation/model";
 import { updateSong, type SongRecord } from "@/lib/storage/library";
 
 export type LyricsState =
@@ -73,5 +75,13 @@ export function useLyrics(song: SongRecord, stems: Int16Array[], frames: number,
     }
   }, []);
 
-  return { state, transcribe, auto, setAuto };
+  // Word starts moved to where the voice comes back after a pause (see align.ts).
+  const ready = state.status === "ready";
+  const levels = useMemo(() => (ready ? voiceLevels(stems[SOURCES.indexOf("vocals")], frames, SAMPLE_RATE) : null), [ready, stems, frames]);
+  const aligned = useMemo<LyricsState>(
+    () => (state.status === "ready" && levels ? { ...state, lyrics: { ...state.lyrics, lines: alignToVoice(state.lyrics.lines, levels) } } : state),
+    [state, levels],
+  );
+
+  return { state: aligned, transcribe, auto, setAuto };
 }

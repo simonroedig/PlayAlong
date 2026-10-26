@@ -145,6 +145,7 @@ describe("second transcription of parts of a window", () => {
 
 describe("lyrics with chords", () => {
   const chord = (label: string, start: number, end: number, root: number | null = 0): DisplayChord => ({
+    part: 0,
     start,
     end,
     startBeat: 0,
@@ -176,9 +177,9 @@ describe("lyrics with chords", () => {
 
   it("follows the playhead line by line and word by word", () => {
     const sheet = lyricsSheet(lines, chords, 30);
-    expect(sheetPosition(sheet, 0.5)).toEqual({ line: -1, word: -1 });
-    expect(sheetPosition(sheet, 6.2)).toEqual({ line: 1, word: 2 });
-    expect(sheetPosition(sheet, 16.1)).toEqual({ line: 3, word: 2 });
+    expect(sheetPosition(sheet, 0.5)).toEqual({ line: -1, word: -1, sung: -1, next: -1 });
+    expect(sheetPosition(sheet, 6.2)).toMatchObject({ line: 1, word: 2, sung: 2 });
+    expect(sheetPosition(sheet, 16.1)).toMatchObject({ line: 3, word: 2, sung: 2 });
   });
 });
 
@@ -260,5 +261,41 @@ describe("transcribeLyrics", () => {
     expect(result.language).toBe("en");
     expect(result.detected).toBe(false);
     expect(result.lines[0].language).toBe("en");
+  });
+});
+
+describe("word timing around pauses", () => {
+  it("starts a word where the voice comes back after a pause", async () => {
+    const { alignToVoice } = await import("./align");
+    // 10 ms frames: voice 0-1.0 s ("swears" held), silence 1.0-1.8 s, voice again from 1.8 s ("try").
+    const levels = new Float32Array(300).fill(-20);
+    for (let f = 100; f < 180; f++) levels[f] = -90;
+    const line = {
+      start: 0.2,
+      end: 2.6,
+      language: "en",
+      words: [
+        { text: " swears", start: 0.2, end: 0.7, probability: 0.9 },
+        { text: " try", start: 0.7, end: 2.1, probability: 0.9 },
+        { text: " not", start: 2.1, end: 2.6, probability: 0.9 },
+      ],
+    };
+    const [aligned] = alignToVoice([line], levels);
+    expect(aligned.words[1].start).toBeCloseTo(1.8, 2);
+    expect(aligned.words[0].end).toBeCloseTo(1.0, 2);
+    expect(aligned.words[2].start).toBe(2.1);
+  });
+
+  it("lights no word during a pause and marks the next one", async () => {
+    const { sheetPosition } = await import("./sheet");
+    const words = [
+      { text: "swears", start: 0.2, end: 1.0, uncertain: false, chords: [] },
+      { text: "try", start: 1.8, end: 2.1, uncertain: false, chords: [] },
+    ];
+    const sheet = [{ kind: "lyrics" as const, start: 0.2, end: 2.1, words, hasChords: false }];
+    expect(sheetPosition(sheet, 0.5)).toEqual({ line: 0, word: 0, sung: 0, next: -1 });
+    expect(sheetPosition(sheet, 1.4)).toEqual({ line: 0, word: -1, sung: 0, next: 1 });
+    expect(sheetPosition(sheet, 1.9)).toEqual({ line: 0, word: 1, sung: 1, next: -1 });
+    expect(sheetPosition(sheet, 3)).toEqual({ line: 0, word: -1, sung: 1, next: -1 });
   });
 });

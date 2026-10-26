@@ -29,8 +29,11 @@ export interface PreparedSong {
   stems: Int16Array[] | null;
 }
 
-/** Separation needs ~85 MB of memory per minute of audio; keep well clear of tab limits. */
-const MAX_SECONDS = 15 * 60;
+/**
+ * Separation needs ~85 MB of memory per minute of audio; 30 minutes (a short
+ * live set) stays clear of a browser tab's limits.
+ */
+const MAX_SECONDS = 30 * 60;
 
 interface Options {
   backend?: BackendPreference;
@@ -186,7 +189,7 @@ export async function prepareSong(id: string, opts: Options): Promise<PreparedSo
   if (opts.signal.aborted) throw abortError();
   const duration = decoded.frames / SAMPLE_RATE;
   if (duration > MAX_SECONDS) {
-    throw new Error(`This track is ${Math.round(duration / 60)} minutes long. PlayAlong handles songs up to ${MAX_SECONDS / 60} minutes.`);
+    throw new Error(`This track is ${Math.round(duration / 60)} minutes long. PlayAlong handles recordings up to ${MAX_SECONDS / 60} minutes.`);
   }
   song = await updateSong(id, { duration });
   if (song) opts.onSong(song);

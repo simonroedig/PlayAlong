@@ -121,7 +121,7 @@ All optional — set in `.env.local`:
 | `YTDLP_COOKIES` | – | Path to a Netscape cookies file (alternative to the above). |
 | `YTDLP_PATH` | `.bin/yt-dlp`, then `yt-dlp` on `PATH` | Use your own yt-dlp binary. |
 | `YTDLP_EXTRA_ARGS` | – | Extra yt-dlp flags (space separated). |
-| `PLAYALONG_MAX_DURATION_MIN` | `15` | Reject longer YouTube videos (separation needs ~85 MB of RAM per minute). |
+| `PLAYALONG_MAX_DURATION_MIN` | `30` | Reject longer YouTube videos (separation needs ~85 MB of RAM per minute). |
 | `PLAYALONG_CACHE_DIR` | `.cache/youtube` | Server-side audio cache (last 40 downloads are kept). |
 | `NEXT_PUBLIC_MODEL_URL` | `/models/htdemucs_6s.onnx` | Load the model from a CDN instead (must send CORS headers). |
 | `NEXT_PUBLIC_MODEL_SHA256` | pinned hash of the default model | Checksum the browser verifies after downloading the model. |
@@ -261,8 +261,12 @@ npm run typecheck   # TypeScript
 
 - Separation quality depends on the mix: dense, heavily distorted guitars or doubled bass/synth parts can leave some
   bleed. Bass removal is generally cleaner than guitar removal.
-- Memory: a separated 4-minute song needs about 250 MB of RAM and the same in browser storage, so tracks are limited
-  to 15 minutes. Delete songs you no longer need from the library.
+- Memory: a separated 4-minute song needs about 250 MB of RAM and the same in browser storage, so recordings are
+  limited to 30 minutes. Delete songs you no longer need from the library.
+- Several songs in one recording (a live set, a medley): breaks of 5 s or more without chords (silence, applause,
+  talking) split it into songs of at least 40 s; neighbours in the same key and tempo are merged back (a long
+  a-cappella break). Each song gets its own tempo, beat grid, metre and key. Key changes within a song are found from
+  the keys of overlapping 16-bar windows (stretches of 8 bars or more).
 - Open the app via `localhost` or HTTPS: browsers disable AudioWorklet, WebGPU and Web Crypto on plain-HTTP network
   addresses (the app shows a notice if that happens).
 - On the CPU fallback, separation takes roughly 1–2× the song's length on a modern laptop; with WebGPU it is

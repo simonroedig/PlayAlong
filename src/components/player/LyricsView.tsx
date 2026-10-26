@@ -1,8 +1,9 @@
 "use client";
 
 import { Languages, Loader2, Mic, Music2, RotateCcw, TriangleAlert } from "lucide-react";
-import { memo, useMemo, useRef, useState } from "react";
+import { Fragment, memo, useMemo, useRef, useState } from "react";
 import { BackToNow } from "@/components/player/BackToNow";
+import { SongHeading } from "@/components/player/SongParts";
 import { Select } from "@/components/ui/Select";
 import { StemProgress } from "@/components/ui/StemProgress";
 import { STEM_INFO } from "@/lib/mixer";
@@ -10,12 +11,16 @@ import { useFollowScroll } from "@/hooks/useFollowScroll";
 import type { LyricsState } from "@/hooks/useLyrics";
 import { useSheetPlayhead } from "@/hooks/useSheetPlayhead";
 import type { LoopRegion, PlayerEngine } from "@/lib/audio/engine";
+import type { SongPart } from "@/lib/chords/analyze";
+import { partAt } from "@/lib/chords/sheet";
 import type { DisplayChord } from "@/lib/chords/sheet";
 import { LYRICS_LANGUAGES, LYRICS_MODEL_LABEL, languageName } from "@/lib/lyrics/model";
 import { lyricsLanguages, lyricsSheet, type SheetLine } from "@/lib/lyrics/sheet";
 
 interface Props {
   engine: PlayerEngine | null;
+  /** The songs of the recording (more than one for a live set or medley). */
+  parts?: SongPart[];
   state: LyricsState;
   chords: DisplayChord[] | null;
   currentChord: number;
@@ -131,6 +136,7 @@ function Running({ state }: { state: Extract<LyricsState, { status: "running" }>
 
 function LyricsSheet({
   engine,
+  parts = [],
   lyrics,
   chords,
   currentChord,
@@ -175,18 +181,27 @@ function LyricsSheet({
         {lyrics.lines.length === 0 && (
           <p className="px-3 py-6 text-center text-sm text-zinc-500">No sung vocals found in this song.</p>
         )}
-        {sheet.map((line, i) => (
-          <SheetRow
-            key={`${line.kind}-${line.start}`}
-            line={line}
-            index={i}
-            active={i === position.line}
-            past={i < position.line}
-            word={i === position.line ? position.word : -1}
-            currentChord={currentChord}
-            onClick={click}
-          />
-        ))}
+        {sheet.map((line, i) => {
+          const part = parts.length > 1 ? partAt(parts, line.start) : 0;
+          const newSong = parts.length > 1 && (i === 0 || partAt(parts, sheet[i - 1].start) !== part);
+          const here = i === position.line;
+          return (
+            <Fragment key={`${line.kind}-${i}-${line.start}`}>
+              {newSong && <SongHeading part={parts[part]} index={part} />}
+              <SheetRow
+                line={line}
+                index={i}
+                active={here}
+                past={i < position.line}
+                word={here ? position.word : -1}
+                sung={here ? position.sung : -1}
+                next={here ? position.next : -1}
+                currentChord={currentChord}
+                onClick={click}
+              />
+            </Fragment>
+          );
+        })}
       </div>
       <BackToNow show={away} onClick={recenter} />
       </div>
@@ -222,6 +237,8 @@ const SheetRow = memo(function SheetRow({
   active,
   past,
   word,
+  sung,
+  next,
   currentChord,
   onClick,
 }: {
@@ -229,7 +246,12 @@ const SheetRow = memo(function SheetRow({
   index: number;
   active: boolean;
   past: boolean;
+  /** The word being sung, -1 for none. */
   word: number;
+  /** The last word that has started. */
+  sung: number;
+  /** During a pause in the line: the word that comes next. */
+  next: number;
   currentChord: number;
   onClick: (index: number, shift: boolean) => void;
 }) {
@@ -278,11 +300,15 @@ const SheetRow = memo(function SheetRow({
               </span>
             )}
             <span
-              className={`${
-                active ? (k === word ? "text-guitar" : k < word ? "text-zinc-50" : "text-zinc-300") : "text-zinc-300"
+              className={`relative ${
+                active ? (k === word ? "text-guitar" : k <= sung ? "text-zinc-50" : "text-zinc-300") : "text-zinc-300"
               } ${w.uncertain ? "underline decoration-zinc-600 decoration-dotted underline-offset-4" : ""}`}
               title={w.uncertain ? "Unsure, check by ear" : undefined}
             >
+              {/* In a pause: a mark where the singing picks up again. */}
+              {active && k === next && (
+                <span aria-hidden className="absolute top-[0.2em] bottom-[0.15em] -left-[0.28em] w-[3px] rounded-full bg-guitar/80" />
+              )}
               {w.text}
             </span>
           </span>

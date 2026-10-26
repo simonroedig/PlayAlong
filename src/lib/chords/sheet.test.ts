@@ -15,6 +15,7 @@ function analysis(segments: (Partial<ChordSegment> & { length?: number })[], ext
     downbeat: 0,
     key: { tonic: 7, mode: "major" },
     tuningCents: 0,
+    parts: [],
     segments: segments.map(({ length = 4, ...s }) => {
       const startBeat = beat;
       const endBeat = beat + length;
@@ -109,5 +110,28 @@ describe("referencePitch", () => {
     expect(referencePitch(0)).toBe(440);
     expect(referencePitch(-43)).toBe(429);
     expect(referencePitch(38)).toBe(450);
+  });
+});
+
+describe("songs in one recording", () => {
+  it("numbers bars per song, each in its own metre", () => {
+    const a = analysis([{ length: 8 }, { length: 8, root: 2 }]);
+    a.parts = [
+      { start: 0, end: 4.5, startBeat: 0, endBeat: 8, bpm: 120, beatsPerBar: 4, downbeat: 0, key: { tonic: 7, mode: "major" }, keyChanges: [] },
+      { start: 4.5, end: 8.5, startBeat: 8, endBeat: 16, bpm: 90, beatsPerBar: 3, downbeat: 9, key: { tonic: 2, mode: "major" }, keyChanges: [] },
+    ];
+    const chords = displayChords(a, { simple: true, capo: 0, tuneDown: 0 });
+    const bars = chordBars(a, chords, 8.5);
+    expect(bars.filter((b) => b.part === 0).map((b) => b.number)).toEqual([1, 2]);
+    // Song 2: a pickup beat, then bars of three
+    expect(bars.filter((b) => b.part === 1).map((b) => [b.number, b.beats])).toEqual([
+      [0, 1],
+      [1, 3],
+      [2, 3],
+      [3, 1],
+    ]);
+    expect(beatInBar(a, 9)).toBe(0);
+    expect(beatInBar(a, 3)).toBe(3);
+    expect(chords.map((c) => c.part)).toEqual([0, 1]);
   });
 });

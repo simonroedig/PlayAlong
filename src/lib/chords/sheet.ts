@@ -1,4 +1,4 @@
-import type { ChordAnalysis } from "./analyze";
+import type { ChordAnalysis, SongPart } from "./analyze";
 import { chordLabel, usesFlats, type Key } from "./vocabulary";
 
 /**
@@ -32,7 +32,48 @@ export function displayKey(key: Key | null, view: ChordView): Key | null {
   return key ? { tonic: mod12(key.tonic + shapeShift(view)), mode: key.mode } : null;
 }
 
+/** The songs of the recording; analyses from before song detection count as one song. */
+export function songParts(analysis: ChordAnalysis): SongPart[] {
+  if (analysis.parts?.length) return analysis.parts;
+  return [
+    {
+      start: 0,
+      end: Infinity,
+      startBeat: 0,
+      endBeat: analysis.beats.length,
+      bpm: analysis.bpm,
+      beatsPerBar: analysis.beatsPerBar,
+      downbeat: analysis.downbeat,
+      key: analysis.key,
+      keyChanges: [],
+    },
+  ];
+}
+
+/** Index of the song a beat belongs to. */
+export function partOfBeat(parts: readonly SongPart[], beat: number): number {
+  let found = 0;
+  for (let i = 0; i < parts.length; i++) if (parts[i].startBeat <= beat) found = i;
+  return found;
+}
+
+/** Index of the song playing at `time`. */
+export function partAt(parts: readonly SongPart[], time: number): number {
+  let found = 0;
+  for (let i = 0; i < parts.length; i++) if (parts[i].start <= time) found = i;
+  return found;
+}
+
+/** The key sounding at a time: the song's key, or the key it modulated to. */
+export function keyAt(part: SongPart, time: number): SongPart["key"] {
+  let key = part.key;
+  for (const change of part.keyChanges) if (change.start <= time) key = change.key;
+  return key;
+}
+
 export interface DisplayChord {
+  /** Index of the song (part) the chord belongs to. */
+  part: number;
   start: number;
   end: number;
   startBeat: number;
@@ -46,13 +87,16 @@ export interface DisplayChord {
 
 export function displayChords(analysis: ChordAnalysis, view: ChordView): DisplayChord[] {
   const shift = shapeShift(view);
-  const key = displayKey(analysis.key, view);
-  const spelling = key ? (usesFlats(key) ? "flat" : "sharp") : "shape";
+  const parts = songParts(analysis);
   const out: DisplayChord[] = [];
   for (const segment of analysis.segments) {
+    // Spelled in the key sounding there (each song, and a modulation, has its own).
+    const part = partOfBeat(parts, segment.startBeat);
+    const key = displayKey(keyAt(parts[part], segment.start), view);
+    const spelling = key ? (usesFlats(key) ? "flat" : "sharp") : "shape";
     const label = chordLabel(segment, { simple: view.simple, transpose: shift, spelling });
     const prev = out[out.length - 1];
-    if (prev && prev.label === label) {
+    if (prev && prev.label === label && prev.part === part) {
       // e.g. C and Cmaj7 in simple mode
       const a = prev.end - prev.start;
       const b = segment.end - segment.start;
@@ -63,6 +107,7 @@ export function displayChords(analysis: ChordAnalysis, view: ChordView): Display
       continue;
     }
     out.push({
+      part,
       start: segment.start,
       end: segment.end,
       startBeat: segment.startBeat,
@@ -103,9 +148,11 @@ export function beatIndexAt(beats: readonly number[], time: number): number {
   return lastAtOrBefore(beats, time, (b) => b);
 }
 
-/** Position of a beat within its bar (0 = downbeat). */
-export function beatInBar(analysis: Pick<ChordAnalysis, "beatsPerBar" | "downbeat">, beat: number): number {
-  return mod(beat - analysis.downbeat, analysis.beatsPerBar);
+/** Position of a beat within its bar (0 = downbeat), in the metre of its song. */
+export function beatInBar(analysis: ChordAnalysis, beat: number): number {
+  const parts = songParts(analysis);
+  const part = parts[partOfBeat(parts, beat)];
+  return mod(beat - part.downbeat, part.beatsPerBar);
 }
 
 export interface BarCell {
@@ -120,7 +167,9 @@ export interface BarCell {
 }
 
 export interface Bar {
-  /** 1-based; a pickup bar before the first downbeat is 0. */
+  /** Index of the song (part) the bar belongs to. */
+  part: number;
+  /** 1-based within its song; a pickup bar before the first downbeat is 0. */
   number: number;
   start: number;
   end: number;
@@ -131,33 +180,39 @@ export interface Bar {
 }
 
 export function chordBars(analysis: ChordAnalysis, chords: readonly DisplayChord[], duration: number): Bar[] {
-  const { beats, beatsPerBar } = analysis;
+  const { beats } = analysis;
   if (beats.length === 0) return [];
-  const downbeat = mod(analysis.downbeat, beatsPerBar);
-  const starts: number[] = [];
-  if (downbeat > 0) starts.push(0);
-  for (let b = downbeat; b < beats.length; b += beatsPerBar) starts.push(b);
   const bars: Bar[] = [];
   let c = 0;
-  starts.forEach((startBeat, k) => {
-    const endBeat = k + 1 < starts.length ? starts[k + 1] : beats.length;
-    const start = beats[startBeat];
-    const end = endBeat < beats.length ? beats[endBeat] : duration;
-    const cells: BarCell[] = [];
-    while (c < chords.length && chords[c].endBeat <= startBeat) c++;
-    for (let i = c; i < chords.length && chords[i].startBeat < endBeat; i++) {
-      const from = Math.max(chords[i].startBeat, startBeat);
-      const to = Math.min(chords[i].endBeat, endBeat);
-      cells.push({
-        label: chords[i].label,
-        uncertain: chords[i].uncertain,
-        offset: from - startBeat,
-        beats: to - from,
-        continued: chords[i].startBeat < startBeat,
-        chordIndex: i,
-      });
-    }
-    bars.push({ number: downbeat > 0 ? k : k + 1, start, end, startBeat, beats: endBeat - startBeat, cells });
+  songParts(analysis).forEach((part, p) => {
+    const first = part.startBeat;
+    const last = Math.min(part.endBeat, beats.length);
+    if (last <= first) return;
+    // Bars of this song: from its first downbeat on, with a pickup bar before it.
+    const downbeat = first + mod(part.downbeat - first, part.beatsPerBar);
+    const starts: number[] = [];
+    if (downbeat > first) starts.push(first);
+    for (let b = downbeat; b < last; b += part.beatsPerBar) starts.push(b);
+    starts.forEach((startBeat, k) => {
+      const endBeat = k + 1 < starts.length ? starts[k + 1] : last;
+      const start = beats[startBeat];
+      const end = endBeat < beats.length ? beats[endBeat] : duration;
+      const cells: BarCell[] = [];
+      while (c < chords.length && chords[c].endBeat <= startBeat) c++;
+      for (let i = c; i < chords.length && chords[i].startBeat < endBeat; i++) {
+        const from = Math.max(chords[i].startBeat, startBeat);
+        const to = Math.min(chords[i].endBeat, endBeat);
+        cells.push({
+          label: chords[i].label,
+          uncertain: chords[i].uncertain,
+          offset: from - startBeat,
+          beats: to - from,
+          continued: chords[i].startBeat < startBeat,
+          chordIndex: i,
+        });
+      }
+      bars.push({ part: p, number: downbeat > first ? k : k + 1, start, end, startBeat, beats: endBeat - startBeat, cells });
+    });
   });
   return bars;
 }

@@ -15,6 +15,7 @@ import {
   stateRoot,
   viterbi,
 } from "./decode";
+import { keyChanges, mergeSimilar, splitAtBreaks, type KeyChange, type TimeRange } from "./parts";
 import { decimate2 } from "./resample";
 import { estimateTuningCents } from "./tuning";
 import { LARGE_CLASSES, MAJMIN_CLASSES, MAJMIN_N, type Key, type Quality } from "./vocabulary";
@@ -34,7 +35,7 @@ import { LARGE_CLASSES, MAJMIN_CLASSES, MAJMIN_N, type Key, type Quality } from 
  *    bass stem — both only when clearly supported.
  */
 
-export const CHORD_ANALYSIS_VERSION = 1;
+export const CHORD_ANALYSIS_VERSION = 2;
 
 export type BtcModel = "majmin" | "large";
 /** Runs a BTC model on normalized features [108 × 144] and returns logits [108 × classes]. */
@@ -67,8 +68,29 @@ export interface ChordSegment {
   confidence: number;
 }
 
+/**
+ * One song of the recording (a live set holds several), with its own tempo,
+ * metre and key. A single song is one part covering everything.
+ */
+export interface SongPart {
+  /** Seconds. */
+  start: number;
+  end: number;
+  /** Beat indices, end exclusive. */
+  startBeat: number;
+  endBeat: number;
+  bpm: number;
+  beatsPerBar: number;
+  /** Index (into `beats`) of a downbeat of this part. */
+  downbeat: number;
+  key: Key | null;
+  /** Modulations within the song. */
+  keyChanges: KeyChange[];
+}
+
 export interface ChordAnalysis {
   version: number;
+  /** Tempo, metre and key of the main (longest) part. */
   bpm: number;
   /** Beat times in seconds, covering the whole song. */
   beats: number[];
@@ -78,6 +100,7 @@ export interface ChordAnalysis {
   key: Key | null;
   tuningCents: number;
   segments: ChordSegment[];
+  parts: SongPart[];
 }
 
 export type ChordProgress = (phase: "prepare" | "recognise" | "decode", fraction: number) => void;
@@ -297,9 +320,11 @@ export interface BeatGrid {
   bpm: number;
   /** Beat times in seconds, extended to cover the whole song. */
   beats: number[];
+  /** Songs within the recording, each tracked with its own tempo (absent: one song). */
+  parts?: { start: number; end: number; bpm: number; startBeat: number; endBeat: number }[];
 }
 
-export function trackBeats(features: ChordFeatures): BeatGrid {
+function onsetEnvelope(features: ChordFeatures): Float32Array {
   const { fps, drums, bass, tonal } = features.onsets;
   const env = new Float32Array(drums.length);
   const parts: [Float32Array, number][] = [
@@ -308,10 +333,64 @@ export function trackBeats(features: ChordFeatures): BeatGrid {
   ];
   if (features.hasDrums) parts.push([normalizeOnsets(drums, fps), 1]);
   for (const [values, w] of parts) for (let t = 0; t < env.length; t++) env[t] += w * values[t];
+  return env;
+}
+
+/** Tempo of a stretch of the recording. */
+function tempoIn(features: ChordFeatures, env: Float32Array, range: TimeRange): number {
+  const { fps } = features.onsets;
+  const slice = env.subarray(Math.floor(range.start * fps), Math.min(env.length, Math.ceil(range.end * fps)));
   // Without drums, fast arpeggios easily pass for the beat: trust the usual tempo range more.
-  const bpm = estimateTempo(env, fps, 120, features.hasDrums ? 1 : 0.7);
-  const beatTimes = trackBeatFrames(env, fps, bpm).map((f) => f / fps);
-  return { bpm, beats: extendBeats(beatTimes, features.duration, 60 / bpm) };
+  return estimateTempo(slice, fps, 120, features.hasDrums ? 1 : 0.7);
+}
+
+export function trackBeats(features: ChordFeatures, ranges?: TimeRange[]): BeatGrid {
+  const { fps } = features.onsets;
+  const env = onsetEnvelope(features);
+  if (!ranges || ranges.length <= 1) {
+    const bpm = tempoIn(features, env, { start: 0, end: features.duration });
+    const beatTimes = trackBeatFrames(env, fps, bpm).map((f) => f / fps);
+    return { bpm, beats: extendBeats(beatTimes, features.duration, 60 / bpm) };
+  }
+  // Several songs: each gets its own tempo and beat grid.
+  const beats: number[] = [];
+  const parts: NonNullable<BeatGrid["parts"]> = [];
+  for (const range of ranges) {
+    const f0 = Math.floor(range.start * fps);
+    const slice = env.subarray(f0, Math.min(env.length, Math.ceil(range.end * fps)));
+    const bpm = tempoIn(features, env, range);
+    const times = trackBeatFrames(slice, fps, bpm).map((f) => (f + f0) / fps);
+    const own = extendBeats(times, range.end, 60 / bpm, range.start).filter((t) => t >= range.start && t < range.end);
+    const startBeat = beats.length;
+    for (const t of own) if (!beats.length || t > beats[beats.length - 1] + 0.05) beats.push(t);
+    parts.push({ start: range.start, end: range.end, bpm, startBeat, endBeat: beats.length });
+  }
+  const kept = parts.filter((p) => p.endBeat > p.startBeat);
+  if (!kept.length) return trackBeats(features);
+  const main = kept.reduce((a, b) => (b.end - b.start > a.end - a.start ? b : a));
+  return { bpm: main.bpm, beats, parts: kept };
+}
+
+/**
+ * Where one song ends and the next begins: long breaks without chords,
+ * then neighbouring parts in the same key and tempo merged back together.
+ */
+export function findSongs(features: ChordFeatures, probs: FrameProbabilities, ensemble: "both" | "majmin" | "large" = "both"): TimeRange[] {
+  const frames = Math.min(probs.frames, features.frameLevel.length);
+  const majmin = ensembleFrames(probs, ensemble);
+  const noChord = new Float32Array(frames);
+  for (let f = 0; f < frames; f++) noChord[f] = majmin[f * STATES + MAJMIN_N];
+  const ranges = splitAtBreaks(noChord, features.frameLevel, FRAME_TIME, features.duration);
+  if (ranges.length === 1) return ranges;
+  const env = onsetEnvelope(features);
+  const described = ranges.map((range) => {
+    const hist = new Float64Array(STATES);
+    const f0 = Math.floor(range.start / FRAME_TIME);
+    const f1 = Math.min(frames, Math.ceil(range.end / FRAME_TIME));
+    for (let f = f0; f < f1; f++) for (let s = 0; s < STATES; s++) hist[s] += majmin[f * STATES + s];
+    return { ...range, key: estimateKey(hist), bpm: tempoIn(features, env, range) };
+  });
+  return mergeSimilar(described).map(({ start, end }) => ({ start, end }));
 }
 
 // ---------------------------------------------------------------------------
@@ -522,38 +601,66 @@ export function decodeChords(
     beatBass[i].fill(0);
   }
 
-  // Metre and downbeats.
+  // Each song of the recording on its own: metre, repetition, key, decoding.
   const { fps, kick, snare, bass } = features.onsets;
   const near = (env: Float32Array) => beats.map((t) => peakNear(env, fps, t, 3));
   const zeros = beats.map(() => 0);
-  const { beatsPerBar, downbeat } = features.hasDrums
-    ? estimateMeter(beatProbs, near(kick), near(snare), near(bass))
-    : estimateMeter(beatProbs, zeros, zeros, near(bass));
+  const kickAt = features.hasDrums ? near(kick) : zeros;
+  const snareAt = features.hasDrums ? near(snare) : zeros;
+  const bassAt = near(bass);
+  const ranges = grid.parts ?? [{ start: 0, end: duration, bpm: grid.bpm, startBeat: 0, endBeat: nBeats }];
+  const path = new Array<number>(nBeats).fill(MAJMIN_N);
+  const smoothed: Float64Array[] = beatProbs.slice();
+  const parts: SongPart[] = [];
+  for (const range of ranges) {
+    const a = range.startBeat;
+    const b = range.endBeat;
+    if (b <= a) continue;
+    const own = beatProbs.slice(a, b);
+    const meter = estimateMeter(own, kickAt.slice(a, b), snareAt.slice(a, b), bassAt.slice(a, b));
+    const ownSmoothed = repetition ? repetitionSmoothing(own, meter.beatsPerBar, { threshold: repetitionThreshold }) : own;
+    const histogram = new Float64Array(STATES);
+    for (const p of ownSmoothed) for (let s = 0; s < STATES; s++) histogram[s] += p[s];
+    const key = estimateKey(histogram);
+    const prior = keyPrior(useKey ? key : null, keyStrength);
+    // Songs often start with silence or a count-in: no chord is as likely as the tonic there.
+    const initial = Float64Array.from(prior);
+    initial[MAJMIN_N] = Math.max(...prior);
+    const ownPath = viterbi(ownSmoothed, {
+      changeProbability: meter.beatsPerBar === 3 ? changeProbability[3] : changeProbability[4],
+      downbeat: meter.downbeat,
+      prior,
+      initial,
+      extra: beatBass.slice(a, b).map((hist) => bassScores(hist, bassWeight)),
+    });
+    for (let k = a; k < b; k++) {
+      path[k] = ownPath[k - a];
+      smoothed[k] = ownSmoothed[k - a];
+    }
+    parts.push({
+      start: Math.round(beats[a] * 1000) / 1000,
+      end: Math.round((b < nBeats ? beats[b] : duration) * 1000) / 1000,
+      startBeat: a,
+      endBeat: b,
+      bpm: Math.round(range.bpm * 10) / 10,
+      beatsPerBar: meter.beatsPerBar,
+      downbeat: a + meter.downbeat,
+      key,
+      keyChanges: keyChanges(ownSmoothed, meter.beatsPerBar, a, beats).map((c) => ({ ...c, start: Math.round(c.start * 1000) / 1000 })),
+    });
+  }
+  if (!parts.length) {
+    parts.push({ start: 0, end: duration, startBeat: 0, endBeat: nBeats, bpm: Math.round(grid.bpm * 10) / 10, beatsPerBar: 4, downbeat: 0, key: null, keyChanges: [] });
+  }
+  parts[0].start = 0;
+  const partStarts = new Set(parts.map((p) => p.startBeat));
+  const main = parts.reduce((x, y) => (y.end - y.start > x.end - x.start ? y : x));
 
-  // Repetition smoothing, key, decoding.
-  const smoothed = repetition
-    ? repetitionSmoothing(beatProbs, beatsPerBar, { threshold: repetitionThreshold })
-    : beatProbs;
-  const histogram = new Float64Array(STATES);
-  for (const p of smoothed) for (let s = 0; s < STATES; s++) histogram[s] += p[s];
-  const key = estimateKey(histogram);
-  const prior = keyPrior(useKey ? key : null, keyStrength);
-  // Songs often start with silence or a count-in: no chord is as likely as the tonic there.
-  const initial = Float64Array.from(prior);
-  initial[MAJMIN_N] = Math.max(...prior);
-  const path = viterbi(smoothed, {
-    changeProbability: beatsPerBar === 3 ? changeProbability[3] : changeProbability[4],
-    downbeat,
-    prior,
-    initial,
-    extra: beatBass.map((hist) => bassScores(hist, bassWeight)),
-  });
-
-  // Segments with extensions, slash basses and confidence.
+  // Segments with extensions, slash basses and confidence (never across two songs).
   const segments: ChordSegment[] = [];
   for (let i = 0; i < nBeats; ) {
     let j = i + 1;
-    while (j < nBeats && path[j] === path[i]) j++;
+    while (j < nBeats && path[j] === path[i] && !partStarts.has(j)) j++;
     const state = path[i];
     const root = stateRoot(state);
     let quality: Quality = stateMinor(state) ? "min" : "maj";
@@ -588,13 +695,14 @@ export function decodeChords(
 
   return {
     version: CHORD_ANALYSIS_VERSION,
-    bpm: Math.round(grid.bpm * 10) / 10,
+    bpm: main.bpm,
     beats: beats.map((t) => Math.round(t * 1000) / 1000),
-    beatsPerBar,
-    downbeat,
-    key,
+    beatsPerBar: main.beatsPerBar,
+    downbeat: main.downbeat,
+    key: main.key,
     tuningCents: Math.round(features.tuningCents),
     segments,
+    parts,
   };
 }
 
@@ -611,10 +719,11 @@ export async function analyzeChords(
 ): Promise<ChordAnalysis> {
   onProgress?.("prepare", 0);
   const features = extractFeatures(stems, frames, options);
-  const grid = trackBeats(features);
   onProgress?.("prepare", 1);
   const probs = await recogniseFrames(features, runModel, options, (f) => onProgress?.("recognise", f));
   onProgress?.("decode", 0);
+  // A live set or medley: find the songs, then track each one's beat on its own.
+  const grid = trackBeats(features, findSongs(features, probs, options.ensemble));
   const analysis = decodeChords(features, probs, grid, options);
   onProgress?.("decode", 1);
   return analysis;
