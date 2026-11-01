@@ -34,7 +34,9 @@ fader, and the vocals switch on and off on top of any mode.
 PlayAlong listens to the song and writes out the **chords bar by bar**, with key and tempo: big for what to play now and
 next with a beat counter, as a chart of the whole song, and on a timeline under the waveform. Set a **capo** or a
 **half step down** tuning and the shapes change with it. Simple chords to start, full chords (7ths, sus, slash chords)
-when you want them.
+when you want them. Write them as **chord names, roman numerals or numbers** (`Am F C G`, `vi IV I V`, `6m 4 1 5`).
+The **Scales** tab shows the scale of the key on a guitar or bass neck, in the five positions: pentatonic, full scale
+or blues, labelled with note names or scale degrees.
 
 <img src="public/showcase/chart.webp" alt="The chord chart with the chord now and next" width="900" />
 
@@ -91,6 +93,17 @@ npm run dev
 
 The first start downloads the AI models and the YouTube helper by itself (about 700 MB, once). After that it starts
 right away. To stop it press `Ctrl + C`; next time just run `npm run dev` in the PlayAlong folder again.
+
+**Start it with a click (optional).** Run this once in the PlayAlong folder:
+
+```bash
+npm run launcher
+```
+
+It puts a PlayAlong icon on your desktop and in the Start menu (Windows), in Applications (macOS) or in the app menu
+(Linux). Pin it to the taskbar or dock like any other program. A click starts PlayAlong in the background and opens it
+in your browser; it stops by itself 20 minutes after you close the last PlayAlong tab. The first click (and the first
+after an update) builds the app, which takes a minute or two. `npm run launcher -- --remove` takes the icon away again.
 
 <details>
 <summary><b>Keyboard shortcuts</b></summary>

@@ -138,6 +138,75 @@ export function chordLabel(chord: ChordSymbol, options: LabelOptions = {}): stri
   return label;
 }
 
+/**
+ * How chords are written: by name (C, G, Am), as roman numerals relative to
+ * the key (I, V, vi) or as numbers (1, 5, 6m, the Nashville number system).
+ */
+export type ChordNotation = "names" | "roman" | "numbers";
+
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"];
+/** Scale step and accidental of each semitone above the tonic (♭ for the notes outside the major scale). */
+const DEGREES: [number, string][] = [
+  [0, ""],
+  [1, "♭"],
+  [1, ""],
+  [2, "♭"],
+  [2, ""],
+  [3, ""],
+  [4, "♭"],
+  [4, ""],
+  [5, "♭"],
+  [5, ""],
+  [6, "♭"],
+  [6, ""],
+];
+
+/** A scale degree relative to the key's tonic: "♭3" or "♭III" (the tritone is ♯4 in major, ♭5 in minor). */
+export function degreeName(pc: number, key: Key, style: "roman" | "numbers"): string {
+  const semitones = (((pc - key.tonic) % 12) + 12) % 12;
+  const [step, accidental] = semitones === 6 && key.mode === "major" ? [3, "♯"] : DEGREES[semitones];
+  return accidental + (style === "roman" ? ROMAN[step] : String(step + 1));
+}
+
+/** Quality marks after a roman numeral (whose case already says major or minor). */
+const ROMAN_SUFFIX: Record<Quality, string> = {
+  maj: "",
+  min: "",
+  dim: "°",
+  aug: "+",
+  min6: "6",
+  maj6: "6",
+  min7: "7",
+  minmaj7: "(maj7)",
+  maj7: "maj7",
+  "7": "7",
+  dim7: "°7",
+  hdim7: "ø7",
+  sus2: "sus2",
+  sus4: "sus4",
+};
+
+/**
+ * A chord relative to its key: "vi", "V7", "♭VII" or "6m", "57", "♭7".
+ * Minor keys count from their own tonic (i, iv, ♭VI). Slash basses are
+ * written as the scale degree of the bass note (I/3).
+ */
+export function chordNumeral(chord: ChordSymbol, key: Key, options: { simple?: boolean; style: "roman" | "numbers" }): string {
+  if (chord.root === null) return "N.C.";
+  const quality: Quality = options.simple ? FAMILY[chord.quality] : chord.quality;
+  let label: string;
+  if (options.style === "roman") {
+    const numeral = degreeName(chord.root, key, "roman");
+    label = (FAMILY[quality] === "min" ? numeral.toLowerCase() : numeral) + ROMAN_SUFFIX[quality];
+  } else {
+    label = degreeName(chord.root, key, "numbers") + SUFFIX[quality];
+  }
+  if (!options.simple && chord.bass !== null && chord.bass !== chord.root) {
+    label += `/${degreeName(chord.bass, key, "numbers")}`;
+  }
+  return label;
+}
+
 /** Pitch classes of a chord. */
 export function chordTones(root: number, quality: Quality): number[] {
   return INTERVALS[quality].map((i) => (root + i) % 12);

@@ -1,9 +1,10 @@
 "use client";
 
-import { Grid3x3, ListMusic, Loader2, Minus, MoveDown, Plus, RotateCcw, TextQuote, TriangleAlert } from "lucide-react";
+import { Grid3x3, Guitar, ListMusic, Loader2, Minus, MoveDown, Plus, RotateCcw, TextQuote, TriangleAlert } from "lucide-react";
 import { Fragment, memo, useMemo, useRef, useState } from "react";
 import { BackToNow } from "@/components/player/BackToNow";
 import { LyricsView } from "@/components/player/LyricsView";
+import { ScaleView } from "@/components/player/ScaleView";
 import { KeyChangeTag, SongHeading, SongSwitcher, clock } from "@/components/player/SongParts";
 import { Select } from "@/components/ui/Select";
 import { StemProgress } from "@/components/ui/StemProgress";
@@ -28,7 +29,7 @@ import {
   type ChordView,
   type DisplayChord,
 } from "@/lib/chords/sheet";
-import { keyName } from "@/lib/chords/vocabulary";
+import { keyName, type ChordNotation } from "@/lib/chords/vocabulary";
 
 interface Props {
   engine: PlayerEngine | null;
@@ -48,12 +49,13 @@ interface Props {
   onTranscribe: (language: string | null) => void;
 }
 
-type Tab = "chart" | "lyrics";
+type Tab = "chart" | "lyrics" | "scales";
 const TAB_KEY = "playalong:sheet-tab";
 
 function readTab(): Tab {
   try {
-    return localStorage.getItem(TAB_KEY) === "lyrics" ? "lyrics" : "chart";
+    const stored = localStorage.getItem(TAB_KEY);
+    return stored === "lyrics" || stored === "scales" ? stored : "chart";
   } catch {
     return "chart";
   }
@@ -65,6 +67,12 @@ const PHASES: Record<ChordPhase, { label: string; from: number; to: number }> = 
   recognise: { label: "Recognising chords", from: 0.3, to: 0.95 },
   decode: { label: "Writing the chord chart", from: 0.95, to: 1 },
 };
+
+const NOTATIONS: { value: ChordNotation; label: string }[] = [
+  { value: "names", label: "Chord names" },
+  { value: "roman", label: "Roman numerals" },
+  { value: "numbers", label: "Numbers" },
+];
 
 const TUNINGS = [
   { value: 0, label: "Standard tuning" },
@@ -245,6 +253,7 @@ function ChordChart({
               <Plus className="size-3" />
             </StepButton>
           </div>
+          <Select label="Chord notation" value={view.notation} onChange={(notation) => onViewChange({ ...view, notation })} options={NOTATIONS} />
           <Select label="Guitar tuning" value={view.tuneDown} onChange={(tuneDown) => onViewChange({ ...view, tuneDown })} options={TUNINGS} />
         </div>
       </Header>
@@ -293,29 +302,34 @@ function ChordChart({
         <div role="tablist" aria-label="Show" className="flex rounded-2xl border border-white/10 bg-white/[0.04] p-1 text-sm font-semibold">
           {(
             [
-              ["chart", "Chord chart", Grid3x3],
-              ["lyrics", "Chords + lyrics", TextQuote],
+              ["chart", "Chord chart", "Chart", Grid3x3],
+              ["lyrics", "Chords + lyrics", "Lyrics", TextQuote],
+              ["scales", "Scales", "Scales", Guitar],
             ] as const
-          ).map(([id, label, Icon]) => (
+          ).map(([id, label, short, Icon]) => (
             <button
               key={id}
               type="button"
               role="tab"
               aria-selected={tab === id}
+              aria-label={label}
               onClick={() => setTab(id)}
-              className={`inline-flex h-10 items-center gap-2 rounded-xl px-4 transition ${
+              className={`inline-flex h-10 items-center gap-2 rounded-xl px-3 transition sm:px-4 ${
                 tab === id ? "bg-zinc-50 text-ink-950 shadow" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
               }`}
             >
               <Icon className="size-4" />
-              {label}
+              <span className="sm:hidden">{short}</span>
+              <span className="hidden sm:inline">{label}</span>
               {id === "lyrics" && lyrics.status === "running" && <Loader2 className="size-3.5 animate-spin" />}
             </button>
           ))}
         </div>
-        <FollowToggle follow={follow} onToggle={toggleFollow} />
+        {tab !== "scales" && <FollowToggle follow={follow} onToggle={toggleFollow} />}
       </div>
-      {tab === "chart" ? (
+      {tab === "scales" ? (
+        <ScaleView soundingKey={partKey} shapeKey={shapeKey} capo={view.capo} notation={view.notation} />
+      ) : tab === "chart" ? (
         <>
           <ChordSheet
             bars={bars}

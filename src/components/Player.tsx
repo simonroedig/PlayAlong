@@ -16,6 +16,7 @@ import { PlayerEngine, type LoopRegion, type PlayerSnapshot } from "@/lib/audio/
 import { mixToWav } from "@/lib/audio/wav";
 import { stemEnvelopes } from "@/lib/audio/waveform";
 import { DEFAULT_CHORD_VIEW, displayChords, type ChordView } from "@/lib/chords/sheet";
+import type { ChordNotation } from "@/lib/chords/vocabulary";
 import {
   applyPreset,
   defaultMixer,
@@ -38,14 +39,20 @@ const SIMPLE_CHORDS_KEY = "playalong:simple-chords";
 const idleSnapshot: PlayerSnapshot = { loaded: false, playing: false, duration: 0, rate: 1, loop: null };
 const noopSubscribe = () => () => {};
 
+const NOTATION_KEY = "playalong:chord-notation";
+const NOTATIONS: ChordNotation[] = ["names", "roman", "numbers"];
+
 function initialChordView(song: SongRecord): ChordView {
   let simple = DEFAULT_CHORD_VIEW.simple;
+  let notation = DEFAULT_CHORD_VIEW.notation;
   try {
     simple = localStorage.getItem(SIMPLE_CHORDS_KEY) === "1";
+    const stored = localStorage.getItem(NOTATION_KEY) as ChordNotation | null;
+    if (stored && NOTATIONS.includes(stored)) notation = stored;
   } catch {
     // storage blocked
   }
-  return { ...DEFAULT_CHORD_VIEW, ...song.chordView, simple };
+  return { ...DEFAULT_CHORD_VIEW, ...song.chordView, simple, notation };
 }
 
 function saveFile(blob: Blob, name: string) {
@@ -146,6 +153,7 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
       void updateSong(song.id, { chordView: { capo: view.capo, tuneDown: view.tuneDown } });
       try {
         localStorage.setItem(SIMPLE_CHORDS_KEY, view.simple ? "1" : "0");
+        localStorage.setItem(NOTATION_KEY, view.notation);
       } catch {
         // ignore
       }

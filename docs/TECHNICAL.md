@@ -206,7 +206,14 @@ npm run dev         # dev server (Turbopack)
 npm test            # unit tests (Vitest): FFT, STFT/iSTFT, segmenting, mixer, URL parsing, AudioWorklet, chords, lyrics
 npm run lint        # ESLint
 npm run typecheck   # TypeScript
+npm run launcher    # desktop / Start menu / app menu icon (scripts/install-launcher.mjs)
+npm run app         # what the icon runs: build if needed, start in the background, open the browser
 ```
+
+The launcher (`scripts/launch.mjs`) rebuilds when anything in `src/` or the package files is newer than
+`.next/BUILD_ID`, then starts `scripts/serve.mjs` detached, which runs `next start` and stops it once no tab has
+called `/api/heartbeat` for 20 minutes. State and logs live in `.playalong/`. The icons in `scripts/launcher/` are
+rendered from `src/app/icon.svg`.
 
 ## Verification
 

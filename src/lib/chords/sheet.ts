@@ -1,5 +1,5 @@
 import type { ChordAnalysis, SongPart } from "./analyze";
-import { chordLabel, usesFlats, type Key } from "./vocabulary";
+import { chordLabel, chordNumeral, usesFlats, type ChordNotation, type Key } from "./vocabulary";
 
 /**
  * Turns a chord analysis into what the player shows: labels in the shapes
@@ -13,9 +13,11 @@ export interface ChordView {
   capo: number;
   /** Guitar tuned down by this many semitones (1 = E♭ standard). */
   tuneDown: number;
+  /** Chord names, or roman numerals / numbers relative to the key (the same with any capo). */
+  notation: ChordNotation;
 }
 
-export const DEFAULT_CHORD_VIEW: ChordView = { simple: false, capo: 0, tuneDown: 0 };
+export const DEFAULT_CHORD_VIEW: ChordView = { simple: false, capo: 0, tuneDown: 0, notation: "names" };
 
 /** Chords whose probability is below this are shown as uncertain. */
 export const UNCERTAIN_BELOW = 0.6;
@@ -92,9 +94,13 @@ export function displayChords(analysis: ChordAnalysis, view: ChordView): Display
   for (const segment of analysis.segments) {
     // Spelled in the key sounding there (each song, and a modulation, has its own).
     const part = partOfBeat(parts, segment.startBeat);
-    const key = displayKey(keyAt(parts[part], segment.start), view);
+    const sounding = keyAt(parts[part], segment.start);
+    const key = displayKey(sounding, view);
     const spelling = key ? (usesFlats(key) ? "flat" : "sharp") : "shape";
-    const label = chordLabel(segment, { simple: view.simple, transpose: shift, spelling });
+    const label =
+      view.notation !== "names" && sounding
+        ? chordNumeral(segment, sounding, { simple: view.simple, style: view.notation })
+        : chordLabel(segment, { simple: view.simple, transpose: shift, spelling });
     const prev = out[out.length - 1];
     if (prev && prev.label === label && prev.part === part) {
       // e.g. C and Cmaj7 in simple mode

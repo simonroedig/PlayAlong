@@ -9,6 +9,7 @@ import { GetItLink } from "@/components/showcase/GetItLink";
 import { BrandMark } from "@/components/BrandMark";
 import { LeaveGuard } from "@/components/LeaveGuard";
 import { SiteFooter } from "@/components/SiteFooter";
+import { Heartbeat } from "@/components/Heartbeat";
 import { REPO_URL, SHOWCASE } from "@/lib/features";
 import "./globals.css";
 
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     // Browser extensions add classes and attributes to <html> and <body> before React hydrates.
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="flex min-h-full flex-col font-sans" suppressHydrationWarning>
+        {!SHOWCASE && <Heartbeat />}
         <header className="relative z-30">
           <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 pt-4 pb-2 sm:px-6">
             <div className="justify-self-start">

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ChordAnalysis, ChordSegment } from "./analyze";
 import { beatInBar, chordBars, chordIndexAt, displayChords, referencePitch, shapeShift } from "./sheet";
-import { chordLabel } from "./vocabulary";
+import { chordLabel, chordNumeral, degreeName, type Key } from "./vocabulary";
 
 /** Consecutive segments; `length` in beats (default one 4/4 bar). */
 function analysis(segments: (Partial<ChordSegment> & { length?: number })[], extra: Partial<ChordAnalysis> = {}): ChordAnalysis {
@@ -46,14 +46,57 @@ describe("chord labels", () => {
   });
 });
 
+describe("chords relative to the key", () => {
+  const C: Key = { tonic: 0, mode: "major" };
+  const Am: Key = { tonic: 9, mode: "minor" };
+  const roman = (root: number, quality: "maj" | "min" | "7" | "dim" | "hdim7" | "min7", key = C, bass: number | null = null) =>
+    chordNumeral({ root, quality, bass }, key, { style: "roman" });
+  const numbers = (root: number, quality: "maj" | "min" | "7" | "min7", key = C, bass: number | null = null) =>
+    chordNumeral({ root, quality, bass }, key, { style: "numbers" });
+
+  it("writes roman numerals: upper case major, lower case minor", () => {
+    expect([roman(0, "maj"), roman(7, "7"), roman(9, "min"), roman(2, "min7"), roman(11, "dim"), roman(10, "maj")]).toEqual([
+      "I",
+      "V7",
+      "vi",
+      "ii7",
+      "vii°",
+      "♭VII",
+    ]);
+    // A minor counts from A: i, iv, ♭VI, ♭VII, and a major V.
+    expect([roman(9, "min", Am), roman(2, "min", Am), roman(5, "maj", Am), roman(7, "maj", Am), roman(4, "7", Am)]).toEqual([
+      "i",
+      "iv",
+      "♭VI",
+      "♭VII",
+      "V7",
+    ]);
+    expect(roman(0, "maj", C, 4)).toBe("I/3");
+  });
+
+  it("writes numbers (Nashville style)", () => {
+    expect([numbers(0, "maj"), numbers(7, "7"), numbers(9, "min"), numbers(10, "maj"), numbers(9, "min", Am)]).toEqual(["1", "57", "6m", "♭7", "1m"]);
+    expect(numbers(2, "maj", C, 6)).toBe("2/♯4");
+    expect(degreeName(3, C, "numbers")).toBe("♭3");
+    expect(degreeName(3, Am, "numbers")).toBe("♭5");
+  });
+
+  it("keeps numerals the same with a capo", () => {
+    const a = analysis([{ root: 7 }, { root: 2 }, { root: 4, quality: "min" }]);
+    const view = { simple: false, capo: 2, tuneDown: 0 };
+    expect(displayChords(a, { ...view, notation: "roman" }).map((c) => c.label)).toEqual(["I", "V", "vi"]);
+    expect(displayChords(a, { ...view, notation: "numbers" }).map((c) => c.label)).toEqual(["1", "5", "6m"]);
+  });
+});
+
 describe("display chords", () => {
   it("transposes to capo / down-tuned shapes", () => {
-    expect(shapeShift({ simple: false, capo: 2, tuneDown: 0 })).toBe(-2);
-    expect(shapeShift({ simple: false, capo: 0, tuneDown: 1 })).toBe(1);
+    expect(shapeShift({ simple: false, capo: 2, tuneDown: 0, notation: "names" })).toBe(-2);
+    expect(shapeShift({ simple: false, capo: 0, tuneDown: 1, notation: "names" })).toBe(1);
     const a = analysis([{ root: 7 }, { root: 2, bass: 6 }]);
-    expect(displayChords(a, { simple: false, capo: 0, tuneDown: 0 }).map((c) => c.label)).toEqual(["G", "D/F♯"]);
+    expect(displayChords(a, { simple: false, capo: 0, tuneDown: 0, notation: "names" }).map((c) => c.label)).toEqual(["G", "D/F♯"]);
     // Capo 2: G sounds from an F shape, D/F♯ from C/E.
-    expect(displayChords(a, { simple: false, capo: 2, tuneDown: 0 }).map((c) => c.label)).toEqual(["F", "C/E"]);
+    expect(displayChords(a, { simple: false, capo: 2, tuneDown: 0, notation: "names" }).map((c) => c.label)).toEqual(["F", "C/E"]);
   });
 
   it("merges chords that look the same in simple mode and flags uncertain ones", () => {
@@ -62,17 +105,17 @@ describe("display chords", () => {
       { root: 0, quality: "maj7", confidence: 0.3 },
       { root: 9, quality: "min", confidence: 0.3 },
     ]);
-    const simple = displayChords(a, { simple: true, capo: 0, tuneDown: 0 });
+    const simple = displayChords(a, { simple: true, capo: 0, tuneDown: 0, notation: "names" });
     expect(simple.map((c) => c.label)).toEqual(["C", "Am"]);
     expect(simple[0].endBeat).toBe(8);
     expect(simple[0].uncertain).toBe(false);
     expect(simple[1].uncertain).toBe(true);
-    expect(displayChords(a, { simple: false, capo: 0, tuneDown: 0 }).map((c) => c.label)).toEqual(["C", "Cmaj7", "Am"]);
+    expect(displayChords(a, { simple: false, capo: 0, tuneDown: 0, notation: "names" }).map((c) => c.label)).toEqual(["C", "Cmaj7", "Am"]);
   });
 
   it("finds the chord and beat under the playhead", () => {
     const a = analysis([{ root: 7 }, { root: 0 }, { root: 2 }]);
-    const chords = displayChords(a, { simple: false, capo: 0, tuneDown: 0 });
+    const chords = displayChords(a, { simple: false, capo: 0, tuneDown: 0, notation: "names" });
     expect(chordIndexAt(chords, 0.2)).toBe(-1);
     expect(chordIndexAt(chords, 0.5)).toBe(0);
     expect(chordIndexAt(chords, 2.6)).toBe(1);
@@ -92,7 +135,7 @@ describe("chordBars", () => {
       ],
       { downbeat: 1 },
     );
-    const chords = displayChords(a, { simple: false, capo: 0, tuneDown: 0 });
+    const chords = displayChords(a, { simple: false, capo: 0, tuneDown: 0, notation: "names" });
     const bars = chordBars(a, chords, 8.5);
     expect(bars[0]).toMatchObject({ number: 0, beats: 1 });
     expect(bars[0].cells.map((c) => c.label)).toEqual(["N.C."]);
@@ -120,7 +163,7 @@ describe("songs in one recording", () => {
       { start: 0, end: 4.5, startBeat: 0, endBeat: 8, bpm: 120, beatsPerBar: 4, downbeat: 0, key: { tonic: 7, mode: "major" }, keyChanges: [] },
       { start: 4.5, end: 8.5, startBeat: 8, endBeat: 16, bpm: 90, beatsPerBar: 3, downbeat: 9, key: { tonic: 2, mode: "major" }, keyChanges: [] },
     ];
-    const chords = displayChords(a, { simple: true, capo: 0, tuneDown: 0 });
+    const chords = displayChords(a, { simple: true, capo: 0, tuneDown: 0, notation: "names" });
     const bars = chordBars(a, chords, 8.5);
     expect(bars.filter((b) => b.part === 0).map((b) => b.number)).toEqual([1, 2]);
     // Song 2: a pickup beat, then bars of three

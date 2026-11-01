@@ -13,6 +13,8 @@
     "prebuild": "node scripts/setup.mjs",
     "build": "next build",
     "start": "next start",
+    "launcher": "node scripts/install-launcher.mjs",
+    "app": "node scripts/launch.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
