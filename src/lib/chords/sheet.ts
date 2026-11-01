@@ -1,5 +1,5 @@
 import type { ChordAnalysis, SongPart } from "./analyze";
-import { chordLabel, chordNumeral, usesFlats, type ChordNotation, type Key } from "./vocabulary";
+import { FAMILY, chordLabel, chordNumeral, usesFlats, type ChordNotation, type Key, type Quality } from "./vocabulary";
 
 /**
  * Turns a chord analysis into what the player shows: labels in the shapes
@@ -13,7 +13,7 @@ export interface ChordView {
   capo: number;
   /** Guitar tuned down by this many semitones (1 = E♭ standard). */
   tuneDown: number;
-  /** Chord names, or roman numerals / numbers relative to the key (the same with any capo). */
+  /** Chord names, or roman numerals relative to the key (the same with any capo). */
   notation: ChordNotation;
 }
 
@@ -83,6 +83,10 @@ export interface DisplayChord {
   label: string;
   /** Sounding root (before capo / tuning), null for no chord. */
   root: number | null;
+  /** As shown (triads only in simple mode). */
+  quality: Quality;
+  /** Semitones from the key's tonic to the root (I = 0, V = 7), null without a key or chord. */
+  degree: number | null;
   confidence: number;
   uncertain: boolean;
 }
@@ -98,8 +102,8 @@ export function displayChords(analysis: ChordAnalysis, view: ChordView): Display
     const key = displayKey(sounding, view);
     const spelling = key ? (usesFlats(key) ? "flat" : "sharp") : "shape";
     const label =
-      view.notation !== "names" && sounding
-        ? chordNumeral(segment, sounding, { simple: view.simple, style: view.notation })
+      view.notation === "roman" && sounding
+        ? chordNumeral(segment, sounding, { simple: view.simple })
         : chordLabel(segment, { simple: view.simple, transpose: shift, spelling });
     const prev = out[out.length - 1];
     if (prev && prev.label === label && prev.part === part) {
@@ -120,6 +124,8 @@ export function displayChords(analysis: ChordAnalysis, view: ChordView): Display
       endBeat: segment.endBeat,
       label,
       root: segment.root,
+      quality: view.simple ? FAMILY[segment.quality] : segment.quality,
+      degree: segment.root !== null && sounding ? mod12(segment.root - sounding.tonic) : null,
       confidence: segment.confidence,
       uncertain: segment.root !== null && segment.confidence < UNCERTAIN_BELOW,
     });

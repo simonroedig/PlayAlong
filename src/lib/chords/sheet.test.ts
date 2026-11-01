@@ -50,9 +50,7 @@ describe("chords relative to the key", () => {
   const C: Key = { tonic: 0, mode: "major" };
   const Am: Key = { tonic: 9, mode: "minor" };
   const roman = (root: number, quality: "maj" | "min" | "7" | "dim" | "hdim7" | "min7", key = C, bass: number | null = null) =>
-    chordNumeral({ root, quality, bass }, key, { style: "roman" });
-  const numbers = (root: number, quality: "maj" | "min" | "7" | "min7", key = C, bass: number | null = null) =>
-    chordNumeral({ root, quality, bass }, key, { style: "numbers" });
+    chordNumeral({ root, quality, bass }, key);
 
   it("writes roman numerals: upper case major, lower case minor", () => {
     expect([roman(0, "maj"), roman(7, "7"), roman(9, "min"), roman(2, "min7"), roman(11, "dim"), roman(10, "maj")]).toEqual([
@@ -74,18 +72,18 @@ describe("chords relative to the key", () => {
     expect(roman(0, "maj", C, 4)).toBe("I/3");
   });
 
-  it("writes numbers (Nashville style)", () => {
-    expect([numbers(0, "maj"), numbers(7, "7"), numbers(9, "min"), numbers(10, "maj"), numbers(9, "min", Am)]).toEqual(["1", "57", "6m", "♭7", "1m"]);
-    expect(numbers(2, "maj", C, 6)).toBe("2/♯4");
+  it("names scale degrees", () => {
     expect(degreeName(3, C, "numbers")).toBe("♭3");
+    expect(degreeName(6, C, "numbers")).toBe("♯4");
     expect(degreeName(3, Am, "numbers")).toBe("♭5");
+    expect(roman(2, "maj", C, 6)).toBe("II/♯4");
   });
 
   it("keeps numerals the same with a capo", () => {
     const a = analysis([{ root: 7 }, { root: 2 }, { root: 4, quality: "min" }]);
     const view = { simple: false, capo: 2, tuneDown: 0 };
     expect(displayChords(a, { ...view, notation: "roman" }).map((c) => c.label)).toEqual(["I", "V", "vi"]);
-    expect(displayChords(a, { ...view, notation: "numbers" }).map((c) => c.label)).toEqual(["1", "5", "6m"]);
+    expect(displayChords(a, { ...view, notation: "roman" }).map((c) => c.degree)).toEqual([0, 7, 9]);
   });
 });
 

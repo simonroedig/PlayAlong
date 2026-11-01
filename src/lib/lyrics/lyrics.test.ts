@@ -152,6 +152,8 @@ describe("lyrics with chords", () => {
     endBeat: 0,
     label,
     root,
+    quality: "maj",
+    degree: root,
     confidence: 0.9,
     uncertain: false,
   });

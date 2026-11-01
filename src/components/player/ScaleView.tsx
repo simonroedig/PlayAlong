@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MAX_FRET, OPEN_STRINGS, positionSpan, scaleName, scaleNeck, scalePosition, type FretNote, type Instrument, type ScaleKind } from "@/lib/chords/scales";
-import { degreeName, keyName, noteName, usesFlats, type ChordNotation, type Key } from "@/lib/chords/vocabulary";
+import { degreeColor } from "@/lib/chords/colors";
+import type { DisplayChord } from "@/lib/chords/sheet";
+import { chordTones, degreeName, keyName, noteName, usesFlats, type ChordNotation, type Key } from "@/lib/chords/vocabulary";
 
 /**
  * The scale of the key sounding now on a guitar or bass neck, in the five
- * positions guitarists learn. Notes are labelled like the chords: by name,
- * roman numeral or number.
+ * positions guitarists learn. Notes are labelled like the chords: by name or
+ * roman numeral. In play-along mode the notes of the chord playing light up
+ * in its colour, and the next chord's notes fade in before it comes.
  */
 
 const PREFS_KEY = "playalong:scale-view";
@@ -43,7 +46,50 @@ const KINDS: { value: ScaleKind; label: string; hint: string }[] = [
 const STRING_NAMES: Record<Instrument, string[]> = { guitar: ["E", "A", "D", "G", "B", "e"], bass: ["E", "A", "D", "G"] };
 const MARKERS = [3, 5, 7, 9, 15, 17];
 
-export function ScaleView({ soundingKey, shapeKey, capo, notation }: { soundingKey: Key | null; shapeKey: Key | null; capo: number; notation: ChordNotation }) {
+/** A chord on the neck: its notes (as played, after capo / tuning), root and colour. */
+interface ChordOnNeck {
+  label: string;
+  tones: Set<number>;
+  root: number;
+  color: string;
+}
+
+const mod12 = (n: number) => ((n % 12) + 12) % 12;
+
+function onNeck(chord: DisplayChord | null, shift: number): ChordOnNeck | null {
+  const color = degreeColor(chord?.degree);
+  if (!chord || chord.root === null || !color) return null;
+  const root = mod12(chord.root + shift);
+  return { label: chord.label, tones: new Set(chordTones(root, chord.quality)), root, color };
+}
+
+export interface PlayAlongState {
+  current: DisplayChord | null;
+  next: DisplayChord | null;
+  beatsToNext: number | null;
+  beatsPerBar: number;
+}
+
+export function ScaleView({
+  soundingKey,
+  shapeKey,
+  capo,
+  shift,
+  notation,
+  playMode,
+  onPlayMode,
+  playing,
+}: {
+  soundingKey: Key | null;
+  shapeKey: Key | null;
+  capo: number;
+  /** Semitones from the sounding chords to the shapes played. */
+  shift: number;
+  notation: ChordNotation;
+  playMode: boolean;
+  onPlayMode: (on: boolean) => void;
+  playing: PlayAlongState;
+}) {
   const [prefs, setPrefsState] = useState<Prefs>(readPrefs);
   const setPrefs = (next: Partial<Prefs>) =>
     setPrefsState((p) => {
@@ -63,6 +109,15 @@ export function ScaleView({ soundingKey, shapeKey, capo, notation }: { soundingK
     () => (key && prefs.position >= 0 ? scalePosition(key, prefs.kind, prefs.instrument, prefs.position) : null),
     [key, prefs.kind, prefs.instrument, prefs.position],
   );
+
+  const current = playMode ? onNeck(playing.current, shift) : null;
+  const next = playMode ? onNeck(playing.next, shift) : null;
+  // The next chord fades in over the last bar before it.
+  const window = Math.max(1, playing.beatsPerBar);
+  const fade =
+    next && playing.beatsToNext !== null && playing.beatsToNext > 0 && playing.beatsToNext <= window
+      ? (window - playing.beatsToNext + 1) / (window + 1)
+      : 0;
 
   if (!key || !soundingKey) {
     return <p className="mt-4 rounded-2xl bg-white/[0.03] px-4 py-6 text-center text-sm text-zinc-400">No key was detected here, so there is no scale to show.</p>;
@@ -85,6 +140,21 @@ export function ScaleView({ soundingKey, shapeKey, capo, notation }: { soundingK
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={playMode}
+            onClick={() => onPlayMode(!playMode)}
+            title="Colour every chord and light up its notes on the neck while the song plays"
+            className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition ${
+              playMode ? "border-guitar/60 bg-guitar/15 text-zinc-50" : "border-white/10 bg-white/[0.04] text-zinc-300 hover:text-zinc-50"
+            }`}
+          >
+            <span className={`relative h-4 w-7 rounded-full transition ${playMode ? "bg-guitar" : "bg-white/15"}`}>
+              <span className={`absolute top-0.5 size-3 rounded-full bg-white transition-all ${playMode ? "left-3.5" : "left-0.5"}`} />
+            </span>
+            Play along
+          </button>
           <Segmented
             label="Scale"
             value={prefs.kind}
@@ -121,20 +191,60 @@ export function ScaleView({ soundingKey, shapeKey, capo, notation }: { soundingK
         ))}
       </div>
 
-      <Fretboard instrument={prefs.instrument} neck={neck} position={position} span={span} label={label} />
+      <Fretboard
+        instrument={prefs.instrument}
+        neck={neck}
+        position={position}
+        span={span}
+        label={label}
+        tonic={key.tonic}
+        play={playMode ? { current, next, fade } : null}
+      />
 
-      <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block size-3 rounded-full bg-guitar" /> root note
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block size-3 rounded-full bg-zinc-200" /> in this position
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block size-2.5 rounded-full border-[1.5px] border-zinc-400/70" /> elsewhere on the neck
-        </span>
-        <span>Lowest string at the bottom, like in tabs.</span>
-      </p>
+      {playMode ? (
+        <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
+          {current ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block size-3 rounded-full" style={{ background: current.color }} />
+              <span>
+                now{" "}
+                <span className="font-semibold" style={{ color: current.color }}>
+                  {current.label}
+                </span>
+                , its root ringed in white
+              </span>
+            </span>
+          ) : (
+            <span>Play the song: the notes of each chord light up here.</span>
+          )}
+          {next && (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block size-3 rounded-full border-2" style={{ borderColor: next.color }} />
+              <span>
+                next{" "}
+                <span className="font-semibold" style={{ color: next.color }}>
+                  {next.label}
+                </span>
+                , fading in before it comes
+              </span>
+            </span>
+          )}
+          <span>Dashed: chord notes outside the scale.</span>
+        </p>
+      ) : (
+        <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block size-3 rounded-full bg-guitar" /> root note
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block size-3 rounded-full bg-zinc-200" /> in this position
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block size-2.5 rounded-full border-[1.5px] border-zinc-400/70" /> elsewhere on the neck
+          </span>
+          <span>Lowest string at the bottom, like in tabs.</span>
+        </p>
+      )}
     </div>
   );
 }
@@ -180,12 +290,16 @@ function Fretboard({
   position,
   span,
   label,
+  tonic,
+  play,
 }: {
   instrument: Instrument;
   neck: FretNote[];
   position: FretNote[] | null;
   span: [number, number] | null;
   label: (n: FretNote) => string;
+  tonic: number;
+  play: { current: ChordOnNeck | null; next: ChordOnNeck | null; fade: number } | null;
 }) {
   const strings = OPEN_STRINGS[instrument].length;
   const width = OPEN_W + MAX_FRET * FRET_W + 8;
@@ -194,7 +308,22 @@ function Fretboard({
   const y = (string: number) => PAD_Y + (strings - 1 - string) * STRING_GAP;
   const x = (fret: number) => (fret === 0 ? OPEN_W - 17 : OPEN_W + (fret - 0.5) * FRET_W);
   const inPosition = new Set((position ?? []).map((n) => `${n.string}:${n.fret}`));
-  const highlighted = position ?? neck;
+  const scaleNotes = position ?? neck;
+  // Chord notes outside the scale (a V7 in minor, a borrowed chord) within the same frets.
+  const extra: FretNote[] = [];
+  if (play && (play.current || play.next)) {
+    const shown = new Set(scaleNotes.map((n) => `${n.string}:${n.fret}`));
+    const [lo, hi] = span ?? [0, MAX_FRET];
+    OPEN_STRINGS[instrument].forEach((open, string) => {
+      for (let fret = lo; fret <= hi; fret++) {
+        const pc = (open + fret) % 12;
+        const wanted = play.current?.tones.has(pc) || (play.next?.tones.has(pc) && play.fade > 0);
+        if (wanted && !shown.has(`${string}:${fret}`)) extra.push({ string, fret, pc, degree: (pc - tonic + 12) % 12 });
+      }
+    });
+  }
+  const highlighted = [...scaleNotes, ...extra];
+  const outsideScale = new Set(extra.map((n) => `${n.string}:${n.fret}`));
   const bottom = y(0);
   const top = y(strings - 1);
 
@@ -262,18 +391,53 @@ function Fretboard({
             ))}
         {/* The position (or the whole neck), labelled */}
         {highlighted.map((n) => {
-          const root = n.degree === 0;
+          const id = `${n.string}:${n.fret}`;
+          const text = label(n);
+          const size = text.length > 2 ? "text-[8.5px]" : "text-[10px]";
+          if (!play) {
+            const root = n.degree === 0;
+            return (
+              <g key={`n${id}`}>
+                <circle cx={x(n.fret)} cy={y(n.string)} r={11.5} className={root ? "fill-guitar" : "fill-zinc-200"} />
+                <text x={x(n.fret)} y={y(n.string)} dy="0.35em" textAnchor="middle" className={`fill-ink-950 font-semibold ${size}`}>
+                  {text}
+                </text>
+              </g>
+            );
+          }
+          const now = play.current?.tones.has(n.pc) ? play.current : null;
+          const coming = play.next?.tones.has(n.pc) ? play.next : null;
+          const outside = outsideScale.has(id);
           return (
-            <g key={`n${n.string}:${n.fret}`}>
-              <circle cx={x(n.fret)} cy={y(n.string)} r={11.5} className={root ? "fill-guitar" : "fill-zinc-200"} />
+            <g key={`n${id}`} style={outside && !now ? { opacity: play.fade, transition: "opacity 400ms" } : undefined}>
+              {coming && (
+                <circle
+                  cx={x(n.fret)}
+                  cy={y(n.string)}
+                  r={14.5}
+                  fill="none"
+                  stroke={coming.color}
+                  strokeWidth={3}
+                  style={{ opacity: play.fade, transition: "opacity 400ms" }}
+                />
+              )}
+              <circle
+                cx={x(n.fret)}
+                cy={y(n.string)}
+                r={11.5}
+                style={{ fill: now ? now.color : "#3f3f46", transition: "fill 250ms" }}
+                stroke={now && n.pc === now.root ? "#fafafa" : outside ? "#a1a1aa" : "none"}
+                strokeWidth={now && n.pc === now.root ? 2.5 : 1.5}
+                strokeDasharray={outside && !(now && n.pc === now.root) ? "3 2" : undefined}
+              />
               <text
                 x={x(n.fret)}
                 y={y(n.string)}
                 dy="0.35em"
                 textAnchor="middle"
-                className={`fill-ink-950 font-semibold ${label(n).length > 2 ? "text-[8.5px]" : "text-[10px]"}`}
+                className={`font-semibold ${size} ${now ? "fill-ink-950" : "fill-zinc-300"}`}
               >
-                {label(n)}
+                {text}
               </text>
             </g>
           );

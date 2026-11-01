@@ -34,9 +34,11 @@ fader, and the vocals switch on and off on top of any mode.
 PlayAlong listens to the song and writes out the **chords bar by bar**, with key and tempo: big for what to play now and
 next with a beat counter, as a chart of the whole song, and on a timeline under the waveform. Set a **capo** or a
 **half step down** tuning and the shapes change with it. Simple chords to start, full chords (7ths, sus, slash chords)
-when you want them. Write them as **chord names, roman numerals or numbers** (`Am F C G`, `vi IV I V`, `6m 4 1 5`).
+when you want them. Write them as **chord names or roman numerals** (`Am F C G` or `vi IV I V`).
 The **Scales** tab shows the scale of the key on a guitar or bass neck, in the five positions: pentatonic, full scale
-or blues, labelled with note names or scale degrees.
+or blues, labelled with note names or scale degrees. Switch on **Play along** and every chord gets its own colour: the
+chord now and the next three, the chart, and the chord's notes on the neck, where the next chord's notes fade in during
+the bar before it comes. Handy for soloing over the changes.
 
 <img src="public/showcase/chart.webp" alt="The chord chart with the chord now and next" width="900" />
 

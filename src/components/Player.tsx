@@ -40,7 +40,7 @@ const idleSnapshot: PlayerSnapshot = { loaded: false, playing: false, duration: 
 const noopSubscribe = () => () => {};
 
 const NOTATION_KEY = "playalong:chord-notation";
-const NOTATIONS: ChordNotation[] = ["names", "roman", "numbers"];
+const NOTATIONS: ChordNotation[] = ["names", "roman"];
 
 function initialChordView(song: SongRecord): ChordView {
   let simple = DEFAULT_CHORD_VIEW.simple;
