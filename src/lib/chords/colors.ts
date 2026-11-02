@@ -24,3 +24,17 @@ export function degreeColor(degree: number | null | undefined): string | null {
   if (degree === null || degree === undefined) return null;
   return DEGREE_COLORS[((degree % 12) + 12) % 12];
 }
+
+/** Grey for chords without a key to relate them to. */
+export const NEUTRAL = "#a1a1aa";
+
+/** The chord's colour, or grey without a key. */
+export function chordColor(degree: number | null | undefined): string {
+  return degreeColor(degree) ?? NEUTRAL;
+}
+
+/** A hex colour with transparency, for borders and backgrounds. */
+export function alpha(hex: string, opacity: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgb(${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255} / ${opacity})`;
+}

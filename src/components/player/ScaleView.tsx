@@ -9,27 +9,32 @@ import { chordTones, degreeName, keyName, noteName, usesFlats, type ChordNotatio
 /**
  * The scale of the key sounding now on a guitar or bass neck, in the five
  * positions guitarists learn. Notes are labelled like the chords: by name or
- * roman numeral. In play-along mode the notes of the chord playing light up
- * in its colour, and the next chord's notes fade in before it comes.
+ * roman numeral. In Solo along mode the chord playing lights up in its colour
+ * (its root, or all of its notes), and the next chord fades in before it comes.
  */
 
 const PREFS_KEY = "playalong:scale-view";
 
+type ChordNotes = "root" | "all";
+
 interface Prefs {
   kind: ScaleKind;
   instrument: Instrument;
+  /** Solo along: light up only each chord's root, or all its notes. */
+  chordNotes: ChordNotes;
   /** 0 to 4, or -1 for the whole neck. */
   position: number;
 }
 
 function readPrefs(): Prefs {
-  const fallback: Prefs = { kind: "pentatonic", instrument: "guitar", position: 0 };
+  const fallback: Prefs = { kind: "pentatonic", instrument: "guitar", chordNotes: "root", position: 0 };
   try {
     const stored = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "null") as Partial<Prefs> | null;
     if (!stored) return fallback;
     return {
       kind: stored.kind === "scale" || stored.kind === "blues" ? stored.kind : "pentatonic",
       instrument: stored.instrument === "bass" ? "bass" : "guitar",
+      chordNotes: stored.chordNotes === "all" ? "all" : "root",
       position: typeof stored.position === "number" && stored.position >= -1 && stored.position <= 4 ? stored.position : 0,
     };
   } catch {
@@ -46,22 +51,30 @@ const KINDS: { value: ScaleKind; label: string; hint: string }[] = [
 const STRING_NAMES: Record<Instrument, string[]> = { guitar: ["E", "A", "D", "G", "B", "e"], bass: ["E", "A", "D", "G"] };
 const MARKERS = [3, 5, 7, 9, 15, 17];
 
-/** A chord on the neck: its notes (as played, after capo / tuning), root and colour. */
+/** A chord on the neck: how strongly each of its notes shows (as played, after capo / tuning), root and colour. */
 interface ChordOnNeck {
   label: string;
-  tones: Set<number>;
+  /** Pitch class to strength: the root 1, then the 3rd, 5th and 7th fainter. */
+  tones: Map<number, number>;
   root: number;
   color: string;
 }
 
 const mod12 = (n: number) => ((n % 12) + 12) % 12;
+const STRENGTH = [1, 0.7, 0.5, 0.3];
 
-function onNeck(chord: DisplayChord | null, shift: number): ChordOnNeck | null {
+function onNeck(chord: DisplayChord | null, shift: number, notes: ChordNotes): ChordOnNeck | null {
   const color = degreeColor(chord?.degree);
   if (!chord || chord.root === null || !color) return null;
   const root = mod12(chord.root + shift);
-  return { label: chord.label, tones: new Set(chordTones(root, chord.quality)), root, color };
+  const tones = new Map<number, number>();
+  const all = chordTones(root, chord.quality);
+  (notes === "all" ? all : [root]).forEach((pc, i) => tones.set(pc, STRENGTH[Math.min(i, STRENGTH.length - 1)]));
+  return { label: chord.label, tones, root, color };
 }
+
+/** Lower case where the key's own chord on that degree is minor or diminished, as in roman numeral chords. */
+const MINOR_DEGREES: Record<Key["mode"], Set<number>> = { major: new Set([2, 4, 9, 11]), minor: new Set([0, 2, 5, 7]) };
 
 export interface PlayAlongState {
   current: DisplayChord | null;
@@ -110,8 +123,8 @@ export function ScaleView({
     [key, prefs.kind, prefs.instrument, prefs.position],
   );
 
-  const current = playMode ? onNeck(playing.current, shift) : null;
-  const next = playMode ? onNeck(playing.next, shift) : null;
+  const current = playMode ? onNeck(playing.current, shift, prefs.chordNotes) : null;
+  const next = playMode ? onNeck(playing.next, shift, prefs.chordNotes) : null;
   // The next chord fades in over the last bar before it.
   const window = Math.max(1, playing.beatsPerBar);
   const fade =
@@ -123,7 +136,11 @@ export function ScaleView({
     return <p className="mt-4 rounded-2xl bg-white/[0.03] px-4 py-6 text-center text-sm text-zinc-400">No key was detected here, so there is no scale to show.</p>;
   }
 
-  const label = (n: FretNote) => (notation === "names" ? noteName(n.pc, usesFlats(key) ? "flat" : "sharp") : degreeName(n.pc, key, notation));
+  const label = (n: FretNote) => {
+    if (notation === "names") return noteName(n.pc, usesFlats(key) ? "flat" : "sharp");
+    const numeral = degreeName(n.pc, key, "roman");
+    return MINOR_DEGREES[key.mode].has(n.degree) ? numeral.toLowerCase() : numeral;
+  };
   const span = position ? positionSpan(position) : null;
 
   return (
@@ -145,7 +162,7 @@ export function ScaleView({
             role="switch"
             aria-checked={playMode}
             onClick={() => onPlayMode(!playMode)}
-            title="Colour every chord and light up its notes on the neck while the song plays"
+            title="Colour every chord, light it up on the neck while the song plays, and read ahead in two rows of the chart"
             className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition ${
               playMode ? "border-guitar/60 bg-guitar/15 text-zinc-50" : "border-white/10 bg-white/[0.04] text-zinc-300 hover:text-zinc-50"
             }`}
@@ -153,8 +170,19 @@ export function ScaleView({
             <span className={`relative h-4 w-7 rounded-full transition ${playMode ? "bg-guitar" : "bg-white/15"}`}>
               <span className={`absolute top-0.5 size-3 rounded-full bg-white transition-all ${playMode ? "left-3.5" : "left-0.5"}`} />
             </span>
-            Play along
+            Solo along
           </button>
+          {playMode && (
+            <Segmented
+              label="Chord notes"
+              value={prefs.chordNotes}
+              options={[
+                { value: "root", label: "Root", hint: "Light up the root of each chord" },
+                { value: "all", label: "All notes", hint: "Light up every note of the chord, the root strongest" },
+              ]}
+              onChange={(chordNotes) => setPrefs({ chordNotes })}
+            />
+          )}
           <Segmented
             label="Scale"
             value={prefs.kind}
@@ -211,7 +239,7 @@ export function ScaleView({
                 <span className="font-semibold" style={{ color: current.color }}>
                   {current.label}
                 </span>
-                , its root ringed in white
+                {prefs.chordNotes === "all" ? ", root ringed in white, 3rd, 5th and 7th fainter" : ", its root ringed in white"}
               </span>
             </span>
           ) : (
@@ -406,8 +434,11 @@ function Fretboard({
             );
           }
           const now = play.current?.tones.has(n.pc) ? play.current : null;
+          const strength = now?.tones.get(n.pc) ?? 0;
           const coming = play.next?.tones.has(n.pc) ? play.next : null;
+          const comingStrength = coming?.tones.get(n.pc) ?? 0;
           const outside = outsideScale.has(id);
+          const isRoot = !!now && n.pc === now.root;
           return (
             <g key={`n${id}`} style={outside && !now ? { opacity: play.fade, transition: "opacity 400ms" } : undefined}>
               {coming && (
@@ -418,24 +449,30 @@ function Fretboard({
                   fill="none"
                   stroke={coming.color}
                   strokeWidth={3}
-                  style={{ opacity: play.fade, transition: "opacity 400ms" }}
+                  style={{ opacity: play.fade * Math.max(comingStrength, 0.5), transition: "opacity 400ms" }}
                 />
               )}
               <circle
                 cx={x(n.fret)}
                 cy={y(n.string)}
                 r={11.5}
-                style={{ fill: now ? now.color : "#3f3f46", transition: "fill 250ms" }}
-                stroke={now && n.pc === now.root ? "#fafafa" : outside ? "#a1a1aa" : "none"}
-                strokeWidth={now && n.pc === now.root ? 2.5 : 1.5}
-                strokeDasharray={outside && !(now && n.pc === now.root) ? "3 2" : undefined}
+                fill="#3f3f46"
+                stroke={isRoot ? "#fafafa" : outside ? "#a1a1aa" : "none"}
+                strokeWidth={isRoot ? 2.5 : 1.5}
+                strokeDasharray={outside && !isRoot ? "3 2" : undefined}
+              />
+              <circle
+                cx={x(n.fret)}
+                cy={y(n.string)}
+                r={isRoot ? 10.25 : 11.5}
+                style={{ fill: now?.color ?? "#3f3f46", opacity: strength, transition: "opacity 250ms, fill 250ms" }}
               />
               <text
                 x={x(n.fret)}
                 y={y(n.string)}
                 dy="0.35em"
                 textAnchor="middle"
-                className={`font-semibold ${size} ${now ? "fill-ink-950" : "fill-zinc-300"}`}
+                className={`font-semibold ${size} ${strength >= 0.5 ? "fill-ink-950" : "fill-zinc-300"}`}
               >
                 {text}
               </text>

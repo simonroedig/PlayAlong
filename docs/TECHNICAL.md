@@ -211,8 +211,10 @@ npm run app         # what the icon runs: build if needed, start in the backgrou
 ```
 
 The launcher (`scripts/launch.mjs`) rebuilds when anything in `src/` or the package files is newer than
-`.next/BUILD_ID`, then starts `scripts/serve.mjs` detached, which runs `next start` and stops it once no tab has
-called `/api/heartbeat` for 20 minutes. State and logs live in `.playalong/`. The icons in `scripts/launcher/` are
+`.next/BUILD_ID` (`scripts/lib/app-build.mjs`), then starts `scripts/serve.mjs` detached, which runs `next start` and
+stops it once no tab has called `/api/heartbeat` for 20 minutes. It also checks every 30 s whether the code is newer
+than the build and flags `.playalong/update-ready`; the page then offers a restart (`POST /api/heartbeat` with an
+`x-playalong: update` header), and the server rebuilds and starts again. State and logs live in `.playalong/`. The icons in `scripts/launcher/` are
 rendered from `src/app/icon.svg`.
 
 ## Verification

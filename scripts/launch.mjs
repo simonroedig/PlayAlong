@@ -3,15 +3,12 @@
 // when it is new or was updated, starts it in the background and opens the browser.
 //   node scripts/launch.mjs
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, openSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { mkdirSync, openSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { buildIsCurrent, dependenciesOutdated, prepare, root, stateDir } from "./lib/app-build.mjs";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const stateDir = join(root, ".playalong");
 const stateFile = join(stateDir, "server.json");
 const node = process.execPath;
-const nextBin = join(root, "node_modules", "next", "dist", "bin", "next");
 const interactive = process.stdout.isTTY;
 
 const say = (text) => console.log(text);
@@ -60,41 +57,6 @@ async function portInUse(port) {
   }
 }
 
-/** Newest modification time of the files the build is made from. */
-function newestSource() {
-  let newest = 0;
-  const walk = (dir) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const path = join(dir, entry.name);
-      if (entry.isDirectory()) walk(path);
-      else newest = Math.max(newest, statSync(path).mtimeMs);
-    }
-  };
-  walk(join(root, "src"));
-  for (const file of ["package.json", "package-lock.json", "next.config.ts", "tsconfig.json", "postcss.config.mjs"]) {
-    if (existsSync(join(root, file))) newest = Math.max(newest, statSync(join(root, file)).mtimeMs);
-  }
-  return newest;
-}
-
-function buildIsCurrent() {
-  const id = join(root, ".next", "BUILD_ID");
-  return existsSync(id) && statSync(id).mtimeMs >= newestSource();
-}
-
-function run(args, label) {
-  const result = spawnSync(node, args, { cwd: root, stdio: "inherit" });
-  if (result.status !== 0) return fail(`${label} failed. Run "npm install" and "npm run build" in ${root} to see why.`);
-}
-
-function npmCli() {
-  const candidates = [
-    join(dirname(node), "node_modules", "npm", "bin", "npm-cli.js"),
-    join(dirname(node), "..", "lib", "node_modules", "npm", "bin", "npm-cli.js"),
-  ];
-  return candidates.find((c) => existsSync(c)) ?? null;
-}
-
 function stopRunningServer() {
   try {
     const { pid } = JSON.parse(readFileSync(stateFile, "utf8"));
@@ -109,18 +71,7 @@ function stopRunningServer() {
 async function main() {
   say("Starting PlayAlong…");
 
-  // Dependencies: installed, and up to date after a "git pull".
-  const lock = join(root, "package-lock.json");
-  const installed = join(root, "node_modules", ".package-lock.json");
-  if (!existsSync(nextBin) || (existsSync(lock) && existsSync(installed) && statSync(lock).mtimeMs > statSync(installed).mtimeMs + 1000)) {
-    const npm = npmCli();
-    if (!npm) return fail(`Please run "npm install" once in ${root}.`);
-    say("Installing what PlayAlong needs (once)…");
-    notify("Installing what PlayAlong needs. This takes a minute.");
-    run([npm, "install", "--no-audit", "--no-fund"], "Installing");
-  }
-
-  const fresh = buildIsCurrent();
+  const fresh = buildIsCurrent() && !dependenciesOutdated();
   const port = Number(process.env.PORT) || 3000;
   let state = null;
   try {
@@ -143,12 +94,9 @@ async function main() {
     }
   }
 
-  if (!fresh) {
-    say("Getting PlayAlong ready. The first time (and after an update) this takes a minute or two…");
-    notify("Getting PlayAlong ready. The first time this takes a minute or two.");
-    run([join(root, "scripts", "setup.mjs")], "Downloading the models");
-    run([nextBin, "build"], "Building PlayAlong");
-  }
+  if (!fresh) notify("Getting PlayAlong ready. The first time this takes a minute or two.");
+  const error = prepare(say);
+  if (error) return fail(error);
 
   // A free port: 3000, or the next one if something else uses it.
   let free = port;

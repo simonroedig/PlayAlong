@@ -35,10 +35,10 @@ PlayAlong listens to the song and writes out the **chords bar by bar**, with key
 next with a beat counter, as a chart of the whole song, and on a timeline under the waveform. Set a **capo** or a
 **half step down** tuning and the shapes change with it. Simple chords to start, full chords (7ths, sus, slash chords)
 when you want them. Write them as **chord names or roman numerals** (`Am F C G` or `vi IV I V`).
-The **Scales** tab shows the scale of the key on a guitar or bass neck, in the five positions: pentatonic, full scale
-or blues, labelled with note names or scale degrees. Switch on **Play along** and every chord gets its own colour: the
-chord now and the next three, the chart, and the chord's notes on the neck, where the next chord's notes fade in during
-the bar before it comes. Handy for soloing over the changes.
+The **Solo** tab shows the scale of the key on a guitar or bass neck, in the five positions: pentatonic, full scale
+or blues, labelled with note names or scale degrees. Switch on **Solo along** to improvise over the changes: every
+chord gets the colour of its scale degree, two rows of the chart scroll along with the bar being played lit up, and
+the chord's root (or all its notes) lights up on the neck, with the next chord fading in during the bar before it.
 
 <img src="public/showcase/chart.webp" alt="The chord chart with the chord now and next" width="900" />
 
@@ -104,8 +104,10 @@ npm run launcher
 
 It puts a PlayAlong icon on your desktop and in the Start menu (Windows), in Applications (macOS) or in the app menu
 (Linux). Pin it to the taskbar or dock like any other program. A click starts PlayAlong in the background and opens it
-in your browser; it stops by itself 20 minutes after you close the last PlayAlong tab. The first click (and the first
-after an update) builds the app, which takes a minute or two. `npm run launcher -- --remove` takes the icon away again.
+in your browser; it stops by itself 20 minutes after you close the last PlayAlong tab. The first click builds the app,
+which takes a minute or two. After an update (`git pull`) PlayAlong shows **"A new version is ready"**: click
+**Restart now** and it rebuilds and reloads (or click the icon again). `npm run launcher -- --remove` takes the icon
+away again.
 
 <details>
 <summary><b>Keyboard shortcuts</b></summary>

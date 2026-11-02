@@ -5,7 +5,7 @@ import { Fragment, memo, useMemo, useRef, useState } from "react";
 import { BackToNow } from "@/components/player/BackToNow";
 import { LyricsView } from "@/components/player/LyricsView";
 import { ScaleView } from "@/components/player/ScaleView";
-import { degreeColor } from "@/lib/chords/colors";
+import { SoloRows } from "@/components/player/SoloRows";
 import { KeyChangeTag, SongHeading, SongSwitcher, clock } from "@/components/player/SongParts";
 import { Select } from "@/components/ui/Select";
 import { StemProgress } from "@/components/ui/StemProgress";
@@ -215,7 +215,7 @@ function ChordChart({
       return !f;
     });
   const [tab, setTabState] = useState<Tab>(readTab);
-  // Play-along mode: every chord in its colour, its notes lit on the neck, and a longer look ahead.
+  // Solo along: every chord in its colour, its notes lit on the neck, and two rows of the chart to read ahead.
   const [playMode, setPlayModeState] = useState(readPlayMode);
   const setPlayMode = (on: boolean) => {
     setPlayModeState(on);
@@ -225,13 +225,6 @@ function ChordChart({
       // storage blocked
     }
   };
-  const colors = useMemo(() => (playMode ? chords.map((c) => degreeColor(c.degree)) : null), [playMode, chords]);
-  const upcoming = useMemo(() => {
-    if (!playMode || position.chord < 0 || position.beat < 0) return [];
-    return chords
-      .slice(position.chord + 1, position.chord + part.beatsPerBar)
-      .map((chord) => ({ chord, beats: chord.startBeat - position.beat, color: degreeColor(chord.degree) }));
-  }, [playMode, chords, position.chord, position.beat, part.beatsPerBar]);
   const setTab = (t: Tab) => {
     setTabState(t);
     try {
@@ -315,16 +308,18 @@ function ChordChart({
         )}
       </p>
 
-      <NowNext
-        current={current}
-        next={next}
-        beatsToNext={beatsToNext}
-        beat={beatNow}
-        beatsPerBar={part.beatsPerBar}
-        bar={currentBar >= 0 ? bars[currentBar].number : null}
-        color={colors && position.chord >= 0 ? colors[position.chord] : null}
-        upcoming={upcoming}
-      />
+      {playMode ? (
+        <SoloRows bars={bars} chords={chords} currentBar={currentBar} currentChord={position.chord} beat={beatNow} onSeek={onSeek} />
+      ) : (
+        <NowNext
+          current={current}
+          next={next}
+          beatsToNext={beatsToNext}
+          beat={beatNow}
+          beatsPerBar={part.beatsPerBar}
+          bar={currentBar >= 0 ? bars[currentBar].number : null}
+        />
+      )}
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
         <div role="tablist" aria-label="Show" className="flex rounded-2xl border border-white/10 bg-white/[0.04] p-1 text-sm font-semibold">
@@ -332,7 +327,7 @@ function ChordChart({
             [
               ["chart", "Chord chart", "Chart", Grid3x3],
               ["lyrics", "Chords + lyrics", "Lyrics", TextQuote],
-              ["scales", "Scales", "Scales", Guitar],
+              ["scales", "Solo", "Solo", Guitar],
             ] as const
           ).map(([id, label, short, Icon]) => (
             <button
@@ -373,7 +368,6 @@ function ChordChart({
             parts={parts}
             currentBar={currentBar}
             currentChord={position.chord}
-            colors={colors}
             follow={follow}
             loop={loop}
             onSeek={onSeek}
@@ -473,8 +467,6 @@ function NowNext({
   beat,
   beatsPerBar,
   bar,
-  color,
-  upcoming,
 }: {
   current: DisplayChord | null;
   next: DisplayChord | null;
@@ -482,10 +474,6 @@ function NowNext({
   beat: number;
   beatsPerBar: number;
   bar: number | null;
-  /** Play-along mode: the colour of the chord now. */
-  color: string | null;
-  /** Play-along mode: the next chords (up to a bar's worth of chords in all). */
-  upcoming: { chord: DisplayChord; beats: number; color: string | null }[];
 }) {
   const counting = beatsToNext !== null && beatsToNext > 0 && beatsToNext <= beatsPerBar;
   return (
@@ -498,54 +486,25 @@ function NowNext({
           }`}
           aria-live="off"
           title={current?.uncertain ? "Uncertain, check by ear" : undefined}
-          style={color ? { color, transition: "color 250ms" } : undefined}
         >
           {current?.label ?? "·"}
         </div>
       </div>
-      {upcoming.length > 0 ? (
-        <div className="min-w-0 border-white/10 sm:border-l sm:pl-8">
-          <div className="text-[11px] font-semibold tracking-[0.16em] text-zinc-400 uppercase">Coming up</div>
-          <div className="mt-1 flex flex-wrap items-end gap-x-6 gap-y-2">
-            {upcoming.map(({ chord, beats, color: c }, i) => (
-              <div key={chord.startBeat} className="min-w-0">
-                <div
-                  className={`pr-[0.15em] font-semibold whitespace-nowrap ${i === 0 ? "text-3xl sm:text-4xl" : "text-2xl text-zinc-300 sm:text-3xl"} ${chord.uncertain ? "italic" : ""}`}
-                  style={c ? { color: c, opacity: i === 0 ? 1 : 0.75 } : undefined}
-                >
-                  {chord.label}
-                </div>
-                <div className="font-mono text-[11px] text-zinc-500 tabular-nums">
-                  in {beats} {beats === 1 ? "beat" : "beats"}
-                </div>
-              </div>
+      <div className="min-w-0 border-white/10 sm:border-l sm:pl-8">
+        <div className="text-[11px] font-semibold tracking-[0.16em] text-zinc-400 uppercase">
+          Next{beatsToNext !== null && beatsToNext > 0 ? ` · in ${beatsToNext} ${beatsToNext === 1 ? "beat" : "beats"}` : ""}
+        </div>
+        <div className={`pr-[0.15em] text-3xl font-semibold whitespace-nowrap text-zinc-300 sm:text-4xl ${next?.uncertain ? "italic" : ""}`}>
+          {next?.label ?? "·"}
+        </div>
+        {counting && (
+          <div className="mt-2 flex gap-1" aria-hidden>
+            {Array.from({ length: beatsToNext }, (_, i) => (
+              <span key={i} className="h-1 w-5 rounded-full bg-zinc-400/60" />
             ))}
           </div>
-          {counting && (
-            <div className="mt-2 flex gap-1" aria-hidden>
-              {Array.from({ length: beatsToNext }, (_, i) => (
-                <span key={i} className="h-1 w-5 rounded-full bg-zinc-400/60" />
-              ))}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="min-w-0 border-white/10 sm:border-l sm:pl-8">
-          <div className="text-[11px] font-semibold tracking-[0.16em] text-zinc-400 uppercase">
-            Next{beatsToNext !== null && beatsToNext > 0 ? ` · in ${beatsToNext} ${beatsToNext === 1 ? "beat" : "beats"}` : ""}
-          </div>
-          <div className={`pr-[0.15em] text-3xl font-semibold whitespace-nowrap text-zinc-300 sm:text-4xl ${next?.uncertain ? "italic" : ""}`}>
-            {next?.label ?? "·"}
-          </div>
-          {counting && (
-            <div className="mt-2 flex gap-1" aria-hidden>
-              {Array.from({ length: beatsToNext }, (_, i) => (
-                <span key={i} className="h-1 w-5 rounded-full bg-zinc-400/60" />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
       <div className="flex items-center gap-3">
         <div className="flex gap-2" aria-label={beat >= 0 ? `Beat ${beat + 1} of ${beatsPerBar}` : undefined}>
           {Array.from({ length: beatsPerBar }, (_, i) => (
@@ -568,7 +527,6 @@ const ChordSheet = memo(function ChordSheet({
   parts,
   currentBar,
   currentChord,
-  colors,
   follow,
   loop,
   onSeek,
@@ -578,8 +536,6 @@ const ChordSheet = memo(function ChordSheet({
   parts: SongPart[];
   currentBar: number;
   currentChord: number;
-  /** Play-along mode: a colour per chord. */
-  colors: (string | null)[] | null;
   follow: boolean;
   loop: LoopRegion | null;
   onSeek: (seconds: number) => void;
@@ -638,7 +594,6 @@ const ChordSheet = memo(function ChordSheet({
               {bar.cells.map((cell) => {
                 const playing = active && cell.chordIndex === currentChord;
                 const narrow = cell.beats < 3 && bar.cells.length > 1;
-                const color = colors?.[cell.chordIndex] ?? null;
                 return (
                   <span
                     key={cell.offset}
@@ -650,7 +605,6 @@ const ChordSheet = memo(function ChordSheet({
                         playing ? "text-guitar" : cell.continued ? "text-zinc-400" : "text-zinc-100"
                       } ${cell.uncertain ? "italic" : ""}`}
                       title={cell.uncertain ? "Uncertain, check by ear" : undefined}
-                      style={color ? { color, opacity: cell.continued && !playing ? 0.55 : 1 } : undefined}
                     >
                       {cell.label}
                     </span>

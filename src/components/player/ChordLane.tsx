@@ -6,12 +6,8 @@ import { useAnimationFrame } from "@/hooks/useAnimationFrame";
 import { useChordPlayhead } from "@/hooks/useChordPlayhead";
 import type { PlayerEngine } from "@/lib/audio/engine";
 import type { ChordAnalysis } from "@/lib/chords/analyze";
+import { alpha, chordColor } from "@/lib/chords/colors";
 import type { DisplayChord } from "@/lib/chords/sheet";
-
-/** Hue per root along the circle of fifths, so related chords look related. */
-function hue(root: number) {
-  return ((root * 7) % 12) * 30;
-}
 
 /** Seconds visible in the zoomed strip. */
 const SPANS = [6, 10, 16, 24, 40, 64];
@@ -223,7 +219,8 @@ export function ChordLane({
               style={{
                 left: `${(c.start / duration) * 100}%`,
                 width: `${((Math.min(c.end, duration) - c.start) / duration) * 100}%`,
-                background: `hsl(${hue(c.root)} 70% 62% / 0.45)`,
+                // Each chord in the colour of its scale degree, as in Solo along.
+                background: alpha(chordColor(c.degree), 0.5),
               }}
             />
           ),
@@ -250,7 +247,7 @@ const Chords = memo(function Chords({
       {chords.map((c, i) => {
         if (c.root === null) return null;
         const length = Math.min(c.end, duration) - c.start;
-        const h = hue(c.root);
+        const color = chordColor(c.degree);
         const active = i === current;
         const past = i < current;
         // Only full names: a chord too short to show its name shows a colour block.
@@ -265,10 +262,10 @@ const Chords = memo(function Chords({
             style={{
               left: `${(c.start / duration) * 100}%`,
               width: `calc(${(length / duration) * 100}% - 3px)`,
-              borderColor: `hsl(${h} 70% 62% / ${active ? 0.95 : 0.35})`,
-              background: `hsl(${h} 70% 62% / ${active ? 0.35 : past ? 0.07 : 0.14})`,
-              color: active ? "#fafafa" : past ? `hsl(${h} 30% 60%)` : `hsl(${h} 75% 84%)`,
-              boxShadow: active ? `0 0 18px hsl(${h} 70% 62% / 0.45)` : undefined,
+              borderColor: alpha(color, active ? 0.95 : 0.4),
+              background: alpha(color, active ? 0.35 : past ? 0.07 : 0.14),
+              color: active ? "#fafafa" : past ? alpha(color, 0.5) : color,
+              boxShadow: active ? `0 0 18px ${alpha(color, 0.45)}` : undefined,
             }}
           >
             {fits ? c.label : ""}
