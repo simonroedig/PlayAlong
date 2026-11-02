@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ChordAnalysis, ChordSegment } from "./analyze";
 import { beatInBar, chordBars, chordIndexAt, displayChords, referencePitch, shapeShift } from "./sheet";
-import { chordLabel, chordNumeral, degreeName, type Key } from "./vocabulary";
+import { chordLabel, chordNumeral, degreeName, keyName, relativeKey, type Key } from "./vocabulary";
 
 /** Consecutive segments; `length` in beats (default one 4/4 bar). */
 function analysis(segments: (Partial<ChordSegment> & { length?: number })[], extra: Partial<ChordAnalysis> = {}): ChordAnalysis {
@@ -70,6 +70,13 @@ describe("chords relative to the key", () => {
       "V7",
     ]);
     expect(roman(0, "maj", C, 4)).toBe("I/3");
+  });
+
+  it("finds the relative key", () => {
+    const d = relativeKey({ tonic: 2, mode: "major" });
+    expect([keyName(d.key), d.numeral]).toEqual(["Bm", "vi"]);
+    const am = relativeKey(Am);
+    expect([keyName(am.key), am.numeral]).toEqual(["C", "♭III"]);
   });
 
   it("names scale degrees", () => {

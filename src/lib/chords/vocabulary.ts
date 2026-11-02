@@ -110,6 +110,16 @@ export function keyName(key: Key): string {
   return `${noteName(key.tonic, usesFlats(key) ? "flat" : "sharp")}${key.mode === "minor" ? "m" : ""}`;
 }
 
+/**
+ * The relative key: same notes, other tonic. A major key's relative minor is
+ * on its 6th degree (vi), a minor key's relative major on its ♭3rd (♭III).
+ */
+export function relativeKey(key: Key): { key: Key; numeral: string } {
+  return key.mode === "major"
+    ? { key: { tonic: (key.tonic + 9) % 12, mode: "minor" }, numeral: "vi" }
+    : { key: { tonic: (key.tonic + 3) % 12, mode: "major" }, numeral: "♭III" };
+}
+
 export interface ChordSymbol {
   /** Root pitch class, null for "no chord". */
   root: number | null;

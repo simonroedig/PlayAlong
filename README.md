@@ -35,8 +35,9 @@ PlayAlong listens to the song and writes out the **chords bar by bar**, with key
 next with a beat counter, as a chart of the whole song, and on a timeline under the waveform. Set a **capo** or a
 **half step down** tuning and the shapes change with it. Simple chords to start, full chords (7ths, sus, slash chords)
 when you want them. Write them as **chord names or roman numerals** (`Am F C G` or `vi IV I V`).
-The **Solo** tab shows the scale of the key on a guitar or bass neck, in the five positions: pentatonic, full scale
-or blues, labelled with note names or scale degrees. Switch on **Solo along** to improvise over the changes: every
+The **Solo** tab shows the scale of the key on a guitar or bass neck, in the five positions (or on the whole neck with
+the position framed): pentatonic, full scale or blues, labelled with note names or scale degrees, with the relative
+key (D major and B minor share their notes). Switch on **Solo along** to improvise over the changes: every
 chord gets the colour of its scale degree, two rows of the chart scroll along with the bar being played lit up, and
 the chord's root (or all its notes) lights up on the neck, with the next chord fading in during the bar before it.
 

@@ -30,7 +30,7 @@ import {
   type ChordView,
   type DisplayChord,
 } from "@/lib/chords/sheet";
-import { keyName, type ChordNotation } from "@/lib/chords/vocabulary";
+import { keyName, relativeKey, type ChordNotation } from "@/lib/chords/vocabulary";
 
 interface Props {
   engine: PlayerEngine | null;
@@ -284,6 +284,12 @@ function ChordChart({
         {soundingKey && (
           <span>
             Key <span className="text-zinc-300">{soundingKey}</span>
+            {partKey && (
+              <span title="The relative key has the same notes: a major key's relative minor is its 6th degree, a minor key's relative major its ♭3rd">
+                {" "}
+                (relative <span className="text-zinc-300">{keyName(relativeKey(partKey).key)}</span>, {relativeKey(partKey).numeral})
+              </span>
+            )}
             {shift !== 0 && shapeKey && (
               <>
                 {" "}
