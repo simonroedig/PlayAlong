@@ -15,6 +15,8 @@ const icons = join(root, "scripts", "launcher");
 const launch = join(root, "scripts", "launch.mjs");
 const node = process.execPath;
 const remove = process.argv.includes("--remove");
+// Which browser the icon opens (scripts/launch.mjs): edge, chrome or default. Windows uses Edge unless told otherwise.
+const browserArg = process.argv.find((a) => a.startsWith("--browser="))?.split("=")[1];
 
 function windows() {
   // PowerShell single-quoted strings: a quote is written twice.
@@ -123,11 +125,23 @@ To put it on the taskbar or dock: open the app menu, search for "PlayAlong", rig
 choose "Add to favorites" / "Pin to taskbar" (or drag the icon there).`;
 }
 
+if (browserArg) {
+  if (!["edge", "chrome", "default"].includes(browserArg)) {
+    console.error('Use --browser=edge, --browser=chrome or --browser=default');
+    process.exit(1);
+  }
+  mkdirSync(join(root, ".playalong"), { recursive: true });
+  writeFileSync(join(root, ".playalong", "launcher.json"), JSON.stringify({ browser: browserArg }));
+  console.log(`The PlayAlong icon opens ${browserArg === "default" ? "your default browser" : browserArg === "edge" ? "Microsoft Edge" : "Google Chrome"}.`);
+}
+
 try {
   const message = process.platform === "win32" ? windows() : process.platform === "darwin" ? mac() : linux();
   console.log(`\n${message}\n`);
   if (!remove) {
-    console.log(`A click starts PlayAlong in the background and opens it in your browser. The first start builds the
+    console.log(`A click starts PlayAlong in the background and opens it in ${
+      process.platform === "win32" && !browserArg ? "Microsoft Edge (use --browser=chrome or --browser=default to change)" : "your browser"
+    }. The first start builds the
 app (a minute or two). It stops by itself 20 minutes after you close the last PlayAlong tab.
 If you move the PlayAlong folder or update Node.js, run "npm run launcher" again.
 `);

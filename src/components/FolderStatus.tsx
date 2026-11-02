@@ -68,7 +68,7 @@ export function FolderStatus() {
   ) : (
     <>
       <HardDrive className="size-4 text-zinc-400" />
-      <span className="hidden sm:inline">Saved in this browser</span>
+      <span className="hidden sm:inline">{folder.status === "unsupported" ? "Saved in this browser only" : "Saved in this browser"}</span>
     </>
   );
 
@@ -87,8 +87,9 @@ export function FolderStatus() {
               <HardDrive className="size-3.5" /> Right now: inside this browser
             </p>
             <p className="mt-1.5 text-zinc-400">
-              They stay here until you clear this site&apos;s data. To keep them as files you can back up or sync with
-              OneDrive or Dropbox, open PlayAlong in Chrome or Edge on a computer: those can save to a folder.
+              They stay here until you clear this site&apos;s data. Firefox and Safari can&apos;t save into a folder on your
+              computer; Chrome and Edge can. Open PlayAlong in one of those to keep your songs as files (also in OneDrive
+              or Dropbox), or download single songs as .playalong files from “Your songs”.
             </p>
           </>
         )}

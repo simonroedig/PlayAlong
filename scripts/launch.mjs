@@ -30,11 +30,39 @@ async function fail(text) {
   process.exit(1);
 }
 
-function openBrowser(url) {
-  const [command, args] =
-    process.platform === "win32" ? ["cmd", ["/c", "start", "", url]] : process.platform === "darwin" ? ["open", [url]] : ["xdg-open", [url]];
+/**
+ * The browser to open: Edge on Windows (always installed, and like Chrome it can save songs to a folder and use
+ * the graphics card), otherwise the default browser. `npm run launcher -- --browser=chrome|edge|default` changes it.
+ */
+function preferredBrowser() {
+  try {
+    const { browser } = JSON.parse(readFileSync(join(stateDir, "launcher.json"), "utf8"));
+    if (["edge", "chrome", "default"].includes(browser)) return browser;
+  } catch {
+    // not set
+  }
+  return process.platform === "win32" ? "edge" : "default";
+}
+
+function browserCommand(browser, url) {
+  if (process.platform === "win32") {
+    const app = { edge: "msedge", chrome: "chrome", default: "" }[browser];
+    return ["cmd", ["/c", "start", "", ...(app ? [app] : []), url]];
+  }
+  if (process.platform === "darwin") {
+    const app = { edge: "Microsoft Edge", chrome: "Google Chrome", default: null }[browser];
+    return ["open", app ? ["-a", app, url] : [url]];
+  }
+  const app = { edge: "microsoft-edge", chrome: "google-chrome", default: "xdg-open" }[browser];
+  return [app, [url]];
+}
+
+function openBrowser(url, browser = preferredBrowser()) {
+  const [command, args] = browserCommand(browser, url);
   const child = spawn(command, args, { detached: true, stdio: "ignore", windowsHide: true });
-  child.on("error", () => say(`Open ${url} in your browser.`));
+  child.on("error", () => (browser === "default" ? say(`Open ${url} in your browser.`) : openBrowser(url, "default")));
+  // "start" and "open" return right away, so a failure to find that browser shows in the exit code.
+  if (process.platform !== "linux") child.on("exit", (code) => code && browser !== "default" && openBrowser(url, "default"));
   child.unref();
 }
 

@@ -454,7 +454,8 @@ function Fretboard({
                 cy={y(n.string)}
                 r={4.5}
                 className="fill-ink-950"
-                stroke={chordColor(n.degree)}
+                // Coloured like the notes; in Solo along only the root keeps a colour, so the chord stands out.
+                stroke={play ? (n.degree === 0 ? chordColor(0) : "#a1a1aa") : chordColor(n.degree)}
                 strokeOpacity={0.7}
                 strokeWidth={1.5}
               />
@@ -469,17 +470,20 @@ function Fretboard({
           if (!play) {
             const root = n.degree === 0;
             return (
-              // Every note in the colour of its scale degree, as the chords; the root ringed in white.
+              // Every note in the colour of its scale degree, as the chords, softened so the roots
+              // (full colour, ringed in white) stand out.
               <g key={`n${id}`} opacity={away ? 0.5 : 1}>
+                <circle cx={x(n.fret)} cy={y(n.string)} r={11.5} fill="#27272a" />
                 <circle
                   cx={x(n.fret)}
                   cy={y(n.string)}
                   r={root ? 10.25 : 11.5}
                   fill={chordColor(n.degree)}
+                  fillOpacity={root ? 1 : 0.55}
                   stroke={root ? "#fafafa" : "none"}
                   strokeWidth={2.5}
                 />
-                <text x={x(n.fret)} y={y(n.string)} dy="0.35em" textAnchor="middle" className={`fill-ink-950 font-semibold ${size}`}>
+                <text x={x(n.fret)} y={y(n.string)} dy="0.35em" textAnchor="middle" className={`font-semibold ${size} ${root ? "fill-ink-950" : "fill-zinc-50"}`}>
                   {text}
                 </text>
               </g>
@@ -511,18 +515,16 @@ function Fretboard({
                 cx={x(n.fret)}
                 cy={y(n.string)}
                 r={11.5}
-                fill="#27272a"
+                fill="#3f3f46"
                 stroke={isRoot ? "#fafafa" : outside ? "#a1a1aa" : "none"}
                 strokeWidth={isRoot ? 2.5 : 1.5}
                 strokeDasharray={outside && !isRoot ? "3 2" : undefined}
               />
-              {/* The note's own colour, dimmed: Solo along keeps the colours and lights up what is played. */}
-              <circle cx={x(n.fret)} cy={y(n.string)} r={isRoot ? 10.25 : 11.5} fill={chordColor(n.degree)} opacity={0.3} />
               <circle
                 cx={x(n.fret)}
                 cy={y(n.string)}
                 r={isRoot ? 10.25 : 11.5}
-                style={{ fill: now?.color ?? "#27272a", opacity: strength, transition: "opacity 250ms, fill 250ms" }}
+                style={{ fill: now?.color ?? "#3f3f46", opacity: strength, transition: "opacity 250ms, fill 250ms" }}
               />
               <text
                 x={x(n.fret)}

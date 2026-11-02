@@ -124,7 +124,7 @@ export function Library() {
               <li key={song.id} className="group relative">
                 <Link
                   href={`/song/${song.id}`}
-                  className="flex items-center gap-3 rounded-2xl border border-white/5 bg-ink-900/70 p-2.5 pr-10 transition hover:border-white/15 hover:bg-ink-850"
+                  className="flex h-full min-h-[5.5rem] items-center gap-3 rounded-2xl border border-white/5 bg-ink-900/70 p-2.5 pr-11 transition hover:border-white/15 hover:bg-ink-850"
                 >
                   <Thumbnail
                     songId={song.id}
@@ -138,11 +138,7 @@ export function Library() {
                       {song.artist ?? (song.source.kind === "file" ? song.source.name : "YouTube")}
                     </p>
                     <p className="mt-1.5 flex items-center gap-2 text-xs text-zinc-500">
-                      {place === "folder" ? (
-                        <span className="inline-flex items-center gap-1 text-sky-300/90">
-                          <FolderOpen className="size-3.5" /> In your folder
-                        </span>
-                      ) : song.status === "ready" ? (
+                      {song.status === "ready" ? (
                         <span className="inline-flex items-center gap-1 text-emerald-400/90">
                           <CircleCheck className="size-3.5" /> Ready to play
                         </span>
@@ -153,30 +149,35 @@ export function Library() {
                       )}
                       {song.duration ? <span className="font-mono">{formatTime(song.duration)}</span> : null}
                     </p>
-                    {place === "browser" && <Where song={song} folderReady={folder.status === "ready"} />}
+                    <Where song={song} folderOnly={place === "folder"} folderReady={folder.status === "ready"} />
                   </div>
                 </Link>
-                {place === "browser" && song.status === "ready" && (
+                {/* Download and remove, one above the other, in the same place on every card. */}
+                <div className="absolute inset-y-2 right-2 flex flex-col justify-between">
+                  {place === "browser" && song.status === "ready" ? (
+                    <button
+                      type="button"
+                      onClick={() => download(song)}
+                      disabled={exporting !== null}
+                      className="rounded-lg p-2 text-zinc-500 opacity-60 transition group-hover:opacity-100 hover:bg-white/10 hover:text-zinc-100 focus-visible:opacity-100 disabled:opacity-40"
+                      title={exporting?.id === song.id ? `Saving file · ${exporting.text}` : "Download as a .playalong file (stems, chords and lyrics), to move, back up or open elsewhere"}
+                      aria-label={`Download ${song.title} as a file`}
+                    >
+                      {exporting?.id === song.id ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                    </button>
+                  ) : (
+                    <span className="size-8" aria-hidden />
+                  )}
                   <button
                     type="button"
-                    onClick={() => download(song)}
-                    disabled={exporting !== null}
-                    className="absolute top-2 right-2 rounded-lg p-2 text-zinc-500 opacity-60 transition group-hover:opacity-100 hover:bg-white/10 hover:text-zinc-100 focus-visible:opacity-100 disabled:opacity-40"
-                    title={exporting?.id === song.id ? `Saving file · ${exporting.text}` : "Download as a .playalong file (stems, chords and lyrics), to move, back up or open elsewhere"}
-                    aria-label={`Download ${song.title} as a file`}
+                    onClick={() => remove(item)}
+                    className="rounded-lg p-2 text-zinc-500 opacity-60 transition group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-300 focus-visible:opacity-100"
+                    title="Remove song"
+                    aria-label={`Remove ${song.title}`}
                   >
-                    {exporting?.id === song.id ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                    <Trash2 className="size-4" />
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => remove(item)}
-                  className="absolute right-2 bottom-2 rounded-lg p-2 text-zinc-500 opacity-60 transition group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-300 focus-visible:opacity-100"
-                  title="Remove song"
-                  aria-label={`Remove ${song.title}`}
-                >
-                  <Trash2 className="size-4" />
-                </button>
+                </div>
               </li>
             );
           })}
@@ -186,8 +187,18 @@ export function Library() {
   );
 }
 
-/** Where a song is kept: only in this browser, or also as a file in the folder. */
-function Where({ song, folderReady }: { song: SongRecord; folderReady: boolean }) {
+/**
+ * Where a song is kept: in this browser and the folder (green), only in this browser (amber), or only in the
+ * folder, e.g. a file put there by hand or saved on another computer (blue; it loads when opened).
+ */
+function Where({ song, folderOnly, folderReady }: { song: SongRecord; folderOnly: boolean; folderReady: boolean }) {
+  if (folderOnly) {
+    return (
+      <span className="mt-1 inline-flex items-center gap-1 text-[11px] text-sky-300/90" title="This song is a file in your folder and loads into this browser when you open it">
+        <FolderOpen className="size-3" /> Only in your folder · loads when opened
+      </span>
+    );
+  }
   const inFolder = folderReady && folderEntries().has(song.id);
   return inFolder ? (
     <span className="mt-1 inline-flex items-center gap-1 text-[11px] text-emerald-400/80" title={`File: ${folderEntries().get(song.id)?.fileName}`}>
@@ -261,7 +272,7 @@ function StoragePanel({ usage, onError }: { usage: number | null; onError: (mess
         </p>
         <p className="text-xs text-zinc-400">
           {folder.status === "unsupported"
-            ? "Clearing the browser's data removes them. Download songs as .playalong files (the arrow on each song), or open PlayAlong in Chrome or Edge to keep them in a folder."
+            ? "This browser (Firefox or Safari) can't save into a folder on your computer; Chrome and Edge can. Here you can download each song as a .playalong file (the arrow on each song). Clearing the browser's data removes the songs."
             : "Clearing the browser's data removes them. Pick a folder (e.g. on your Desktop or in OneDrive) and every song is also saved there as a .playalong file you can see, move and back up."}
         </p>
       </div>

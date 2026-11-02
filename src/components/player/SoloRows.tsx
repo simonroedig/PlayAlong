@@ -14,7 +14,7 @@ import type { Voicing } from "@/lib/chords/voicings";
  * keep track of what came before and what comes.
  */
 
-const ROW_HEIGHT = 122;
+const ROW_HEIGHT = 84;
 const GAP = 6;
 const QUERY = "(min-width: 640px)";
 
@@ -148,21 +148,23 @@ function RowBar({
         const chord = chords[cell.chordIndex] ?? null;
         const c = chordColor(chord?.degree);
         const playing = active && cell.chordIndex === currentChord;
-        const fingering = chord && !cell.continued ? fingerOf(chord) : null;
+        // The fingering sits on the right of the chord, where a bar has room for it.
+        const roomy = cell.beats >= 3 || bar.cells.length === 1;
+        const fingering = chord && roomy && !cell.continued ? fingerOf(chord) : null;
         return (
           <span
             key={cell.offset}
             style={{ flexGrow: cell.beats, flexBasis: 0 }}
-            className={`flex min-w-0 flex-col items-start justify-start gap-0.5 pt-4 pb-1.5 pl-1.5 ${cell.offset > 0 ? "border-l border-white/5" : ""}`}
+            className={`flex min-w-0 items-end justify-between gap-1 pr-1 pb-1.5 pl-1.5 ${cell.offset > 0 ? "border-l border-white/5" : ""}`}
           >
             <span
-              className={`max-w-full truncate pr-[0.2em] text-base font-semibold tracking-tight sm:text-lg ${cell.uncertain ? "italic" : ""}`}
+              className={`min-w-0 truncate pr-[0.2em] text-base font-semibold tracking-tight sm:text-lg ${cell.uncertain ? "italic" : ""}`}
               style={{ color: c, opacity: cell.continued && !playing ? 0.55 : 1 }}
             >
               {cell.label}
             </span>
             {fingering && (
-              <span className="-ml-2 block">
+              <span className="shrink-0 self-center pt-2">
                 <ChordDiagram voicing={fingering.voicing} color={fingering.color} size="sm" />
               </span>
             )}
@@ -170,7 +172,7 @@ function RowBar({
         );
       })}
       {active && beat >= 0 && (
-        <span className="absolute top-1.5 right-1.5 flex gap-1" aria-label={`Beat ${beat + 1} of ${bar.beats}`}>
+        <span className="absolute top-1.5 left-1/2 flex -translate-x-1/2 gap-1" aria-label={`Beat ${beat + 1} of ${bar.beats}`}>
           {Array.from({ length: bar.beats }, (_, i) => (
             <span key={i} className="size-1.5 rounded-full" style={{ background: i <= beat ? (color ?? "#fafafa") : "rgba(255,255,255,0.15)" }} />
           ))}

@@ -323,7 +323,14 @@ function Keyboard({ tonic, semitones }: { tonic: number; semitones: number[] }) 
   const mark = (index: number, x: number, y: number) => {
     const s = marked.get(index);
     if (s === undefined) return null;
-    return <circle cx={x} cy={y} r={5.5} fill={chordColor(s)} stroke={s === 0 ? "#fafafa" : "none"} strokeWidth={2} />;
+    // A dark edge and a shadow, so bright dots stand out on white keys too.
+    return (
+      <g style={{ filter: "drop-shadow(0 1px 1.5px rgba(0,0,0,0.65))" }}>
+        {/* The root: ringed in white, with a dark edge around the ring. */}
+        {s === 0 && <circle cx={x} cy={y} r={8} fill="#18181b" />}
+        <circle cx={x} cy={y} r={6} fill={chordColor(s)} stroke={s === 0 ? "#fafafa" : "#18181b"} strokeWidth={s === 0 ? 2 : 1.2} />
+      </g>
+    );
   };
   return (
     <svg viewBox={`0 0 ${14 * w + 2} 92`} className="mt-4 block w-full max-w-md" role="img" aria-label="The mode on a keyboard">

@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Keyboard, Loader2, Zap, Cpu } from "lucide-react";
+import { Download, FileDown, Keyboard, Loader2, Zap, Cpu } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ChordLane } from "@/components/player/ChordLane";
 import { ChordPanel } from "@/components/player/ChordPanel";
@@ -33,6 +33,7 @@ import {
 } from "@/lib/mixer";
 import { MODEL_LABEL, SAMPLE_RATE, SOURCES } from "@/lib/separation/model";
 import { formatTime } from "@/lib/songs";
+import { exportSongFile } from "@/lib/storage/folder";
 import { loadStems, updateSong, type SongRecord } from "@/lib/storage/library";
 
 const SIMPLE_CHORDS_KEY = "playalong:simple-chords";
@@ -173,6 +174,20 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
     [song.id],
   );
   const voicings = useMemo(() => ({ choice: voicingChoice, onChoice: chooseVoicing }), [voicingChoice, chooseVoicing]);
+
+  // The whole song as a .playalong file (progress text while it is being packed).
+  const [songFile, setSongFile] = useState<string | null>(null);
+  const saveSongFile = async () => {
+    setSongFile("Preparing");
+    try {
+      const { blob, name } = await exportSongFile(song.id, (text) => setSongFile(`Saving · ${text}`));
+      saveFile(blob, name);
+    } catch (err) {
+      alert(`Saving the song as a file failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSongFile(null);
+    }
+  };
 
   const loopRegion = useCallback(
     (region: LoopRegion) => {
@@ -389,6 +404,16 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
             Stems <span className="font-normal text-zinc-500">· mute, solo or rebalance each instrument</span>
           </h2>
           <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={saveSongFile}
+              disabled={songFile !== null}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-sm font-medium text-zinc-200 transition hover:bg-white/10 disabled:opacity-50"
+              title="Download the whole song as a .playalong file (stems, chords, lyrics, fingerings), to keep, move or open elsewhere"
+            >
+              {songFile !== null ? <Loader2 className="size-4 animate-spin" /> : <FileDown className="size-4" />}
+              {songFile ?? "Save as file"}
+            </button>
             <button
               type="button"
               onClick={() => download("mix")}

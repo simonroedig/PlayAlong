@@ -1,12 +1,11 @@
 "use client";
 
-import { CircleCheck, FolderOpen, Music } from "lucide-react";
+import { ChevronDown, CircleCheck, FolderOpen, Music } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFolder } from "@/components/FolderStatus";
 import { Thumbnail } from "@/components/Thumbnail";
-import { Select } from "@/components/ui/Select";
 import { formatTime } from "@/lib/songs";
 import { folderEntries, folderSection } from "@/lib/storage/folder";
 import { listSongs, onLibraryChange, type SongRecord } from "@/lib/storage/library";
@@ -42,21 +41,77 @@ function useSongs(): Entry[] | null {
 
 const folderThumbnail = (id: string) => folderSection(id, "thumbnail");
 
-/** A compact menu of all songs, next to "Library". */
+/** A menu of all songs with their artwork, next to "Library". */
 export function SongMenu({ currentId }: { currentId: string }) {
   const router = useRouter();
   const songs = useSongs();
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
+    const escape = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+
   if (!songs || songs.length < 2) return null;
+  const current = songs.find((e) => e.song.id === currentId)?.song;
   return (
-    <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-      <span aria-hidden>Switch song</span>
-      <Select
-        label="Switch song"
-        align="left"
-        value={currentId}
-        onChange={(id) => id !== currentId && router.push(`/song/${id}`)}
-        options={songs.map(({ song }) => ({ value: song.id, label: song.title }))}
-      />
+    <div ref={box} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="inline-flex h-9 max-w-72 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] pr-2.5 pl-1 text-xs text-zinc-300 transition hover:border-white/20 hover:text-zinc-50"
+      >
+        {current && <Thumbnail songId={current.id} hasThumbnail={current.hasThumbnail} className="aspect-video h-7 shrink-0 rounded-lg" />}
+        <span className="text-zinc-500">Switch song</span>
+        <ChevronDown className={`size-3.5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          aria-label="Switch song"
+          className="absolute top-full left-0 z-40 mt-1.5 max-h-96 w-80 overflow-y-auto rounded-2xl border border-white/10 bg-ink-850 p-1.5 shadow-2xl"
+        >
+          {songs.map(({ song, inFolderOnly }) => {
+            const here = song.id === currentId;
+            return (
+              <li key={song.id} role="option" aria-selected={here}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    if (!here) router.push(`/song/${song.id}`);
+                  }}
+                  className={`flex w-full items-center gap-2.5 rounded-xl p-1.5 text-left transition ${here ? "bg-white/10" : "hover:bg-white/[0.06]"}`}
+                >
+                  <Thumbnail
+                    songId={song.id}
+                    hasThumbnail={song.hasThumbnail}
+                    load={inFolderOnly ? folderThumbnail : undefined}
+                    className="aspect-video w-16 shrink-0 rounded-lg"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-zinc-100">{song.title}</span>
+                    <span className="block truncate text-xs text-zinc-500">
+                      {inFolderOnly ? "In your folder" : (song.artist ?? (song.source.kind === "file" ? song.source.name : "YouTube"))}
+                      {song.duration ? ` · ${formatTime(song.duration)}` : ""}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

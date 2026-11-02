@@ -118,8 +118,9 @@ It puts a PlayAlong icon on your desktop and in the Start menu (Windows), in App
 (Linux). Pin it to the taskbar or dock like any other program. A click starts PlayAlong in the background and opens it
 in your browser; it stops by itself 20 minutes after you close the last PlayAlong tab. The first click builds the app,
 which takes a minute or two. After an update (`git pull`) PlayAlong shows **"A new version is ready"**: click
-**Restart now** and it rebuilds and reloads (or click the icon again). `npm run launcher -- --remove` takes the icon
-away again.
+**Restart now** and it rebuilds and reloads (or click the icon again). On Windows the icon opens Microsoft Edge (it can save
+songs to a folder and use the graphics card); `npm run launcher -- --browser=chrome` or `--browser=default` changes
+that. `npm run launcher -- --remove` takes the icon away again.
 
 <details>
 <summary><b>Keyboard shortcuts</b></summary>
