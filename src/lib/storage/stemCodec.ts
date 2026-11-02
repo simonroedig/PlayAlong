@@ -3,13 +3,13 @@ import { packStemChunks, unpackStemChunks, type StemsInfo } from "./songFile";
 
 /**
  * Stems for .playalong files. Raw stems take about 64 MB per minute of music,
- * so they are stored as Opus at 128 kbit/s per stem (about 6 MB per minute for
+ * so they are stored as Opus at 160 kbit/s per stem (about 7 MB per minute for
  * all six) through WebCodecs, which every browser with folder access has.
  * Without WebCodecs they are stored as they are.
  */
 
 const CHANNELS = 2;
-const BITRATE = 128_000;
+const BITRATE = 160_000;
 /** Interleaved int16 → float in [-1, 1) and back; independent of the separation's PCM scale. */
 const SCALE = 32768;
 const BLOCK = 4410;
@@ -98,8 +98,8 @@ async function encodeOpus(stem: Int16Array, frames: number, rate: number): Promi
           data: planar,
         }),
       );
-      // Keep the queue (and memory) bounded.
-      if (encoder.encodeQueueSize > 64) await encoder.flush();
+      // Keep the queue (and memory) bounded, without flushing mid-stream (a flush ends the stream there).
+      while (encoder.encodeQueueSize > 64 && !failure) await new Promise((resolve) => encoder.addEventListener("dequeue", resolve, { once: true }));
     }
     if (!failure) await encoder.flush();
   } finally {

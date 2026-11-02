@@ -292,17 +292,11 @@ export function ScaleView({
             <span className="inline-block size-3 rounded-full bg-guitar ring-2 ring-zinc-50" /> root note
           </span>
           <span>Each note in the colour of its degree, like the chords.</span>
-          <span className={`inline-flex items-center gap-1.5 ${position ? "" : "hidden"}`}>
-            {wholeNeck ? (
-              <>
-                <span className="inline-block size-3 rounded-full bg-zinc-200/40" /> dimmed: outside the position
-              </>
-            ) : (
-              <>
-                <span className="inline-block size-2.5 rounded-full border-[1.5px] border-zinc-400/70" /> elsewhere on the neck
-              </>
-            )}
-          </span>
+          {position && !wholeNeck && (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block size-2.5 rounded-full border-[1.5px] border-zinc-400/70" /> elsewhere on the neck
+            </span>
+          )}
           <span>Lowest string at the bottom, like in tabs.</span>
         </p>
       )}
@@ -465,14 +459,12 @@ function Fretboard({
           const id = `${n.string}:${n.fret}`;
           const text = label(n);
           const size = text.length > 2 ? "text-[8.5px]" : "text-[10px]";
-          // On the whole neck, notes outside the framed position step back a little.
-          const away = wholeNeck && position !== null && !inPosition.has(id);
           if (!play) {
             const root = n.degree === 0;
             return (
               // Every note in the colour of its scale degree, as the chords, softened so the roots
               // (full colour, ringed in white) stand out.
-              <g key={`n${id}`} opacity={away ? 0.5 : 1}>
+              <g key={`n${id}`}>
                 <circle cx={x(n.fret)} cy={y(n.string)} r={11.5} fill="#27272a" />
                 <circle
                   cx={x(n.fret)}
@@ -498,7 +490,7 @@ function Fretboard({
           return (
             <g
               key={`n${id}`}
-              style={outside && !now ? { opacity: play.fade, transition: "opacity 400ms" } : away && !now && !coming ? { opacity: 0.6 } : undefined}
+              style={outside && !now ? { opacity: play.fade, transition: "opacity 400ms" } : undefined}
             >
               {coming && (
                 <circle

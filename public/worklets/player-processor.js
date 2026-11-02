@@ -6,6 +6,9 @@
  * - short fades on play / pause / seek (no clicks)
  * - gapless A-B loop with a crossfaded seam
  * - tempo change without pitch change (WSOLA) for practising slowly
+ * - a peak limiter on the output: stems stored with lossy compression (Opus,
+ *   in .playalong files) can sum to a little more than full scale on drum
+ *   hits, which the sound card would clip with an audible crackle
  *
  * Messages in:  load, play, pause, seek, gains, loop, rate, unload
  * Messages out: tick { frame, playing, peaks }, ended
@@ -14,6 +17,10 @@
 const PCM = 1 / 16384; // see PCM_SCALE in src/lib/separation/protocol.ts
 const REPORT_EVERY = 4; // render quanta between position reports (~12 ms)
 const LOOP_XFADE = 1024;
+
+// Output limiter: transparent below the threshold, instant attack, smooth release, soft ceiling.
+const LIMIT = 0.97;
+const RELEASE_SECONDS = 0.15;
 
 // WSOLA parameters (samples at 44.1 kHz)
 const W = 2048; // frame length (46 ms)
@@ -40,6 +47,9 @@ class PlayerProcessor extends AudioWorkletProcessor {
     this.pendingRate = 0;
     this.quanta = 0;
     this.forceReport = false;
+    this.limiterGain = 1;
+    // sampleRate is a global of the audio rendering thread.
+    this.release = Math.exp(-1 / (RELEASE_SECONDS * (typeof sampleRate === "number" ? sampleRate : 44100)));
 
     this.idxA = new Int32Array(128);
     this.idxB = new Int32Array(128);
@@ -162,6 +172,27 @@ class PlayerProcessor extends AudioWorkletProcessor {
     this.tailR.fill(0);
   }
 
+  /** Keeps the mix under full scale: gain drops at once on a peak and comes back over 150 ms. */
+  limit(L, R, n) {
+    let g = this.limiterGain;
+    for (let i = 0; i < n; i++) {
+      const peak = Math.max(Math.abs(L[i]), Math.abs(R[i]));
+      const needed = peak * g > LIMIT ? LIMIT / peak : 1;
+      g = needed < g ? needed : 1 - (1 - g) * this.release;
+      if (g > needed) g = needed;
+      // A soft ceiling for anything left over (never a hard clip).
+      L[i] = this.ceil(L[i] * g);
+      R[i] = this.ceil(R[i] * g);
+    }
+    this.limiterGain = g;
+  }
+
+  ceil(x) {
+    const a = Math.abs(x);
+    if (a <= 0.9) return x;
+    return Math.sign(x) * (0.9 + 0.1 * Math.tanh((a - 0.9) / 0.1));
+  }
+
   loopActive() {
     return this.loopStart >= 0 && this.loopEnd > this.loopStart;
   }
@@ -206,6 +237,8 @@ class PlayerProcessor extends AudioWorkletProcessor {
         this.fade = 0;
       }
     }
+
+    this.limit(L, R, n);
 
     if (!rendered) {
       this.playing = false;

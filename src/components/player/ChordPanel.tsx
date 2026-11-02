@@ -73,6 +73,16 @@ function readPreview(): Preview {
   }
 }
 
+const SHAPES_KEY = "playalong:chord-shapes";
+
+function readShapes(): boolean {
+  try {
+    return localStorage.getItem(SHAPES_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
 function readPlayMode(): boolean {
   try {
     return localStorage.getItem(PLAY_MODE_KEY) === "1";
@@ -253,6 +263,16 @@ function ChordChart({
       // storage blocked
     }
   };
+  // Chord shapes (fingering diagrams) in the box: on, or off for a compacter view.
+  const [shapes, setShapesState] = useState(readShapes);
+  const setShapes = (on: boolean) => {
+    setShapesState(on);
+    try {
+      localStorage.setItem(SHAPES_KEY, on ? "1" : "0");
+    } catch {
+      // storage blocked
+    }
+  };
   const setPlayMode = (on: boolean) => {
     setPlayModeState(on);
     if (on) setPreview("rows");
@@ -358,7 +378,10 @@ function ChordChart({
 
       <ChordOverview chords={chords} part={partIndex} shift={shift} shapeKey={shapeKey} notation={view.notation} voicings={voicings} />
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+        <Toggle size="sm" on={shapes} onToggle={() => setShapes(!shapes)} title="Show how to finger each chord in the box below">
+          Chord shapes
+        </Toggle>
         <div role="radiogroup" aria-label="Preview" className="flex h-8 items-center rounded-xl border border-white/10 bg-white/[0.04] p-0.5 text-xs font-medium">
           {(
             [
@@ -388,7 +411,7 @@ function ChordChart({
           currentChord={position.chord}
           beat={beatNow}
           onSeek={onSeek}
-          fingerOf={fingering}
+          fingerOf={shapes ? fingering : null}
         />
       ) : (
         <NowNext
@@ -399,8 +422,8 @@ function ChordChart({
           beat={beatNow}
           beatsPerBar={part.beatsPerBar}
           bar={currentBar >= 0 ? bars[currentBar].number : null}
-          fingering={fingering(current)}
-          nextFingering={fingering(next)}
+          fingering={shapes ? fingering(current) : null}
+          nextFingering={shapes ? fingering(next) : null}
         />
       )}
 

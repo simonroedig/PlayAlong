@@ -60,6 +60,19 @@ describe("player worklet", () => {
     }
   });
 
+  it("never goes over full scale when the stems add up to more (no crackle)", () => {
+    const p = createProcessor();
+    const frames = 88200;
+    // Two stems that peak together at 1.6 on a "drum hit" every 0.5 s, otherwise at 0.5.
+    const hit = (i: number) => (i % 22050 < 200 ? 13000 : 4096);
+    p.send({ type: "load", frames, gains: [1, 1], stems: [stem(frames, (i) => [hit(i), -hit(i)]), stem(frames, (i) => [hit(i), -hit(i)])] });
+    p.send({ type: "play" });
+    const { L, R } = p.render(400);
+    expect(Math.max(...L.map(Math.abs), ...R.map(Math.abs))).toBeLessThanOrEqual(1);
+    // Half a second after a hit the level is back to normal (the limiter only acts on peaks).
+    expect(Math.abs(L[22050 * 2 - 100])).toBeGreaterThan(0.48);
+  });
+
   it("is silent while paused and reports the position", () => {
     const p = createProcessor();
     p.send({ type: "load", frames: 8192, gains: [1], stems: [stem(8192, () => [5000, 5000])] });
