@@ -7,6 +7,8 @@ import { VideoLinkIcon } from "@/components/icons";
 import { useHealth } from "@/hooks/useCapabilities";
 import { YOUTUBE_IMPORT } from "@/lib/features";
 import { ACCEPTED_AUDIO, importFile, youtubeSongId } from "@/lib/songs";
+import { importSongFile } from "@/lib/storage/folder";
+import { SONG_FILE_EXTENSION } from "@/lib/storage/songFile";
 import { parseYouTubeId } from "@/lib/youtube";
 
 /** The two ways in: a YouTube link (left) or an audio file (right, a big drop zone). */
@@ -51,7 +53,9 @@ export function SongImport() {
     setError(null);
     setBusy("file");
     try {
-      router.push(`/song/${await importFile(file)}`);
+      // A .playalong file (downloaded or copied from a folder) brings its stems, chords and lyrics along.
+      if (file.name.toLowerCase().endsWith(SONG_FILE_EXTENSION)) router.push(`/song/${(await importSongFile(file)).id}`);
+      else router.push(`/song/${await importFile(file)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(null);
@@ -184,9 +188,9 @@ export function SongImport() {
               or <span className="text-zinc-100 underline decoration-white/30 underline-offset-4">choose one from your computer</span>
             </span>
           </span>
-          <span className="text-xs tracking-wide text-zinc-500">MP3 · M4A · WAV · FLAC · OGG</span>
+          <span className="text-xs tracking-wide text-zinc-500">MP3 · M4A · WAV · FLAC · OGG · or a .playalong song</span>
         </button>
-        <input ref={fileInput} type="file" accept={ACCEPTED_AUDIO} className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+        <input ref={fileInput} type="file" accept={`${ACCEPTED_AUDIO},${SONG_FILE_EXTENSION}`} className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
       </div>
 
       {!YOUTUBE_IMPORT && (

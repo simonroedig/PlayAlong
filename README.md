@@ -35,11 +35,17 @@ PlayAlong listens to the song and writes out the **chords bar by bar**, with key
 next with a beat counter, as a chart of the whole song, and on a timeline under the waveform. Set a **capo** or a
 **half step down** tuning and the shapes change with it. Simple chords to start, full chords (7ths, sus, slash chords)
 when you want them. Write them as **chord names or roman numerals** (`Am F C G` or `vi IV I V`).
+Above the chart, **every chord of the song** shows once, in its colour, with how often it comes and **how to finger
+it**: open chords, barre chords and the usual jazz voicings for 7th chords. Pick another fingering with the arrows;
+the song remembers it, and the chord now and next show the same fingering. Every chord keeps the colour of its scale
+degree everywhere (I orange, IV cyan, V blue …).
 The **Solo** tab shows the scale of the key on a guitar or bass neck, in the five positions (or on the whole neck with
 the position framed): pentatonic, full scale or blues, labelled with note names or scale degrees, with the relative
 key (D major and B minor share their notes). Switch on **Solo along** to improvise over the changes: every
 chord gets the colour of its scale degree, two rows of the chart scroll along with the bar being played lit up, and
 the chord's root (or all its notes) lights up on the neck, with the next chord fading in during the bar before it.
+The **Theory** tab has an interactive circle of fifths with the song's key and its chords, and the seven modes with
+their whole and half steps, the note that gives each its sound, and the chord on every degree.
 
 <img src="public/showcase/chart.webp" alt="The chord chart with the chord now and next" width="900" />
 
@@ -55,7 +61,10 @@ teleprompter. Click a line to jump there, Shift + click to loop it.
 
 Paste the link of a **YouTube** video, or **drag and drop** an audio file (MP3, M4A, WAV, FLAC, OGG). Your songs are
 kept, so they open instantly next time. In Chrome and Edge they can also live in a folder of your choice, as one
-`.playalong` file each: put it in OneDrive, Dropbox or iCloud Drive and your songs are on all your computers.
+`.playalong` file each: put it in OneDrive, Dropbox or iCloud Drive and your songs are on all your computers. "Your
+songs" shows where they are saved and lets you pick the folder; each song shows whether it is in the folder or only in
+the browser, and downloads as a `.playalong` file that you can drop into PlayAlong anywhere. In the player, switch to
+another song from the menu at the top or the list below.
 
 <img src="public/showcase/import.webp" alt="Paste a YouTube link or drop an audio file" width="720" />
 

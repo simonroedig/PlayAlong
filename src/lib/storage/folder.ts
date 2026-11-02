@@ -269,31 +269,41 @@ export function syncFolder(): Promise<void> {
   });
 }
 
-async function write(dir: FileSystemDirectoryHandle, id: string): Promise<void> {
-  const song = await getSong(id);
-  if (!song || song.status !== "ready" || !song.frames) return;
+/** The .playalong file of a song in this browser (stems reused from the folder copy when unchanged). */
+async function songBlob(song: SongRecord, onProgress: (text: string) => void): Promise<Blob> {
+  const id = song.id;
   const existing = entries.get(id);
-  readyState({ busy: `Saving “${song.title}”` });
-
   // Stems are only encoded once per separation; later saves reuse them from the file.
   let stems: Parameters<typeof buildSongFile>[1]["stems"];
-  let previousFile: File | null = null;
-  if (existing && existing.header.stems && existing.header.song.separation?.finishedAt === song.separation?.finishedAt) {
-    previousFile = await (await dir.getFileHandle(existing.fileName)).getFile();
+  if (handle && existing && existing.header.stems && existing.header.song.separation?.finishedAt === song.separation?.finishedAt) {
+    const previousFile = await (await handle.getFileHandle(existing.fileName)).getFile();
     const data = songFileSection(previousFile, existing.header, existing.payloadStart, "stems");
     if (data) stems = { info: existing.header.stems, data };
   }
   if (!stems) {
     const raw = await loadStems(id, SOURCES.length);
-    stems = await encodeStems(raw, song.frames, (done, total) =>
-      readyState({ busy: `Saving “${song.title}” · stems ${done} of ${total}` }),
-    );
+    stems = await encodeStems(raw, song.frames!, (done, total) => onProgress(`stems ${done} of ${total}`));
   }
   const [source, thumbnail] = await Promise.all([
     loadSourceAudio(id),
     song.hasThumbnail ? loadThumbnail(id) : Promise.resolve(undefined),
   ]);
-  const blob = buildSongFile(song, { source, thumbnail, stems });
+  return buildSongFile(song, { source, thumbnail, stems });
+}
+
+/** A song as a .playalong file to download (to move, back up or open on another computer). */
+export async function exportSongFile(id: string, onProgress: (text: string) => void = () => {}): Promise<{ blob: Blob; name: string }> {
+  const song = await getSong(id);
+  if (!song || song.status !== "ready" || !song.frames) throw new Error("Only songs that are taken apart can be saved as a file");
+  return { blob: await songBlob(song, onProgress), name: songFileName(song) };
+}
+
+async function write(dir: FileSystemDirectoryHandle, id: string): Promise<void> {
+  const song = await getSong(id);
+  if (!song || song.status !== "ready" || !song.frames) return;
+  const existing = entries.get(id);
+  readyState({ busy: `Saving “${song.title}”` });
+  const blob = await songBlob(song, (text) => readyState({ busy: `Saving “${song.title}” · ${text}` }));
 
   let fileName = existing?.fileName;
   if (!fileName) {
@@ -364,17 +374,33 @@ export function importFromFolder(id: string, onProgress?: (text: string) => void
     if (existing?.status === "ready") return existing;
     onProgress?.("Reading the song file");
     const file = await (await handle.getFileHandle(entry.fileName)).getFile();
-    const { header, payloadStart } = await readSongFileHeader(file);
-    const source = songFileSection(file, header, payloadStart, "source");
-    const thumbnail = songFileSection(file, header, payloadStart, "thumbnail");
-    const stemsData = songFileSection(file, header, payloadStart, "stems");
-    // Copy the payload out of the file before it can change underneath.
-    if (source) await saveSourceAudio(id, new Blob([await source.arrayBuffer()], { type: source.type }));
-    if (thumbnail) await saveThumbnail(id, new Blob([await thumbnail.arrayBuffer()], { type: thumbnail.type }));
-    const song: SongRecord = { ...header.song, status: "pending", hasThumbnail: !!thumbnail };
-    await putSong(song, { fromFolder: true });
-    if (!stemsData || !header.stems) return song;
-    const stems = await decodeStems(header.stems, stemsData, (done, total) => onProgress?.(`Unpacking stems ${done} of ${total}`));
-    return saveStems(id, stems, { frames: header.stems.frames }, { fromFolder: true });
+    return importBlob(file, onProgress);
   });
+}
+
+/** Opens a downloaded .playalong file: the song (with stems, chords and lyrics) joins this browser's library. */
+export function importSongFile(file: Blob, onProgress?: (text: string) => void): Promise<SongRecord> {
+  return serial(async () => {
+    const { header } = await readSongFileHeader(file);
+    const existing = await getSong(header.song.id);
+    if (existing?.status === "ready") return existing;
+    return importBlob(file, onProgress, false);
+  });
+}
+
+async function importBlob(file: Blob, onProgress?: (text: string) => void, fromFolder = true): Promise<SongRecord> {
+  const { header, payloadStart } = await readSongFileHeader(file);
+  const id = header.song.id;
+  const source = songFileSection(file, header, payloadStart, "source");
+  const thumbnail = songFileSection(file, header, payloadStart, "thumbnail");
+  const stemsData = songFileSection(file, header, payloadStart, "stems");
+  // Copy the payload out of the file before it can change underneath.
+  if (source) await saveSourceAudio(id, new Blob([await source.arrayBuffer()], { type: source.type }));
+  if (thumbnail) await saveThumbnail(id, new Blob([await thumbnail.arrayBuffer()], { type: thumbnail.type }));
+  const song: SongRecord = { ...header.song, status: "pending", hasThumbnail: !!thumbnail };
+  // A file opened by hand is new to the folder too, so the folder sync may save it there.
+  await putSong(song, { fromFolder });
+  if (!stemsData || !header.stems) return song;
+  const stems = await decodeStems(header.stems, stemsData, (done, total) => onProgress?.(`Unpacking stems ${done} of ${total}`));
+  return saveStems(id, stems, { frames: header.stems.frames }, { fromFolder });
 }

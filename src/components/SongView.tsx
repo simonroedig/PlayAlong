@@ -3,6 +3,7 @@
 import { ArrowLeft, ExternalLink, Loader2, RotateCcw, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { OtherSongs, SongMenu } from "@/components/OtherSongs";
 import { Player } from "@/components/Player";
 import { ProcessingPanel } from "@/components/ProcessingPanel";
 import { Thumbnail } from "@/components/Thumbnail";
@@ -93,12 +94,15 @@ export function SongView({ id }: { id: string }) {
 
   return (
     <div className="pt-6">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-zinc-400 transition hover:bg-white/5 hover:text-zinc-100"
-      >
-        <ArrowLeft className="size-4" /> Library
-      </Link>
+      <div className="flex flex-wrap items-center gap-2">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-zinc-400 transition hover:bg-white/5 hover:text-zinc-100"
+        >
+          <ArrowLeft className="size-4" /> Library
+        </Link>
+        <SongMenu currentId={id} />
+      </div>
 
       <header className="mt-4 flex items-center gap-4">
         <Thumbnail
@@ -189,6 +193,7 @@ export function SongView({ id }: { id: string }) {
 
         {view.kind === "ready" && song && <Player key={song.id} song={song} stems={view.stems} />}
       </div>
+      <OtherSongs currentId={id} />
     </div>
   );
 }
