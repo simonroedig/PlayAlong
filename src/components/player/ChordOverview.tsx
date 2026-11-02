@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { ChordDiagram } from "@/components/player/ChordDiagram";
 import { chordColor } from "@/lib/chords/colors";
 import type { DisplayChord } from "@/lib/chords/sheet";
-import { chordLabel, usesFlats, type ChordNotation, type Key } from "@/lib/chords/vocabulary";
+import { chordLabel, usesFlats, type ChordNotation, type Key, type Quality } from "@/lib/chords/vocabulary";
 import { pickVoicing } from "@/lib/chords/voicings";
 
 /**
@@ -15,6 +15,8 @@ import { pickVoicing } from "@/lib/chords/voicings";
  */
 
 const OPEN_KEY = "playalong:chord-overview";
+/** Plain chords before their colourings. */
+const QUALITY_ORDER: Quality[] = ["maj", "min", "sus2", "sus4", "maj6", "min6", "7", "maj7", "min7", "minmaj7", "hdim7", "dim", "dim7", "aug"];
 
 function readOpen(): boolean {
   try {
@@ -65,7 +67,9 @@ export function ChordOverview({
       if (seen) seen.count++;
       else byKey.set(k, { chord: c, count: 1 });
     }
-    return [...byKey.values()];
+    // In the order of the scale (I, ii, iii … ♭VII), variants of a chord side by side (I, then Imaj7).
+    const order = (c: DisplayChord) => (c.degree ?? c.root ?? 0) * 100 + QUALITY_ORDER.indexOf(c.quality);
+    return [...byKey.values()].sort((a, b) => order(a.chord) - order(b.chord));
   }, [chords, part]);
 
   if (distinct.length === 0) return null;
@@ -98,7 +102,7 @@ export function ChordOverview({
             const { voicing, index, all, key } = pickVoicing((chord.root ?? 0) + shift, chord.quality, voicings.choice);
             const name = chordLabel({ root: chord.root, quality: chord.quality, bass: null }, { transpose: shift, spelling });
             return (
-              <div key={`${chord.root}:${chord.quality}`} className="flex shrink-0 flex-col items-center rounded-2xl border border-white/10 bg-white/[0.03] px-2.5 pt-2 pb-1.5">
+              <div key={`${chord.root}:${chord.quality}`} className="flex w-32 shrink-0 flex-col items-center rounded-2xl border border-white/10 bg-white/[0.03] px-2.5 pt-2 pb-1.5">
                 <div className="flex w-full items-baseline justify-between gap-2">
                   <span className="text-lg font-bold tracking-tight" style={{ color }}>
                     {notation === "roman" ? chord.label.split("/")[0] : name}
@@ -132,7 +136,7 @@ export function ChordOverview({
                     <ChevronRight className="size-3.5" />
                   </button>
                 </div>
-                <span className="max-w-28 truncate text-center text-[10px] text-zinc-500">{voicing.name}</span>
+                <span className="w-full truncate text-center text-[10px] text-zinc-500">{voicing.name}</span>
               </div>
             );
           })}

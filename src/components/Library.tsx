@@ -31,7 +31,7 @@ export function Library() {
       setSongs(list);
       setUsage(estimate);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(`Your songs could not be loaded: ${err instanceof Error ? err.message : String(err)}`);
       setSongs([]);
     }
   }, []);
@@ -79,7 +79,7 @@ export function Library() {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 10000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(`Saving “${song.title}” as a file failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setExporting(null);
     }
@@ -104,7 +104,7 @@ export function Library() {
 
       <StoragePanel usage={usage?.usage ?? null} onError={setError} />
 
-      {error && <p className="rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-300">Library unavailable: {error}</p>}
+      {error && <p className="mb-3 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
 
       {items === null ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

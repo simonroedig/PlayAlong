@@ -278,7 +278,7 @@ const SheetRow = memo(function SheetRow({
             <span
               key={c.index}
               className={`pr-[0.15em] font-semibold ${c.index === currentChord ? "underline decoration-2 underline-offset-4" : ""} ${c.uncertain ? "italic" : ""}`}
-              style={{ color: colors[c.index] }}
+              style={{ color: colors[c.index], opacity: c.index === currentChord ? 1 : 0.7 }}
             >
               {c.label}
             </span>
@@ -300,7 +300,7 @@ const SheetRow = memo(function SheetRow({
                     className={`mr-1.5 pr-[0.1em] ${c.index === currentChord && active ? "underline decoration-2 underline-offset-4" : ""} ${
                       c.uncertain ? "italic" : ""
                     }`}
-                    style={{ color: colors[c.index] }}
+                    style={{ color: colors[c.index], opacity: c.index === currentChord && active ? 1 : 0.7 }}
                   >
                     {c.label}
                   </span>

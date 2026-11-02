@@ -4,7 +4,8 @@ import { RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { alpha, chordColor, degreeColor } from "@/lib/chords/colors";
 import { circleNames, circlePlace, circleTonic, diatonicOnCircle, keySignature, MAJOR_SCALE, MODES, modeDegrees, modeSteps } from "@/lib/chords/theory";
-import { keyName, relativeKey, type ChordNotation, type Key } from "@/lib/chords/vocabulary";
+import { Select } from "@/components/ui/Select";
+import { keyName, noteName, relativeKey, usesFlats, type ChordNotation, type Key } from "@/lib/chords/vocabulary";
 
 /**
  * Music theory around the song: the circle of fifths with the song's key and
@@ -35,54 +36,97 @@ export function TheoryView({
     setPicked(sameKey(next, songKey) ? null : next);
   };
 
-  return (
-    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,380px)_1fr]">
-      <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-3">
-        <div className="flex items-center justify-between gap-2 px-1">
-          <h3 className="text-sm font-semibold text-zinc-100">Circle of fifths</h3>
-          {picked && songKey && (
-            <button
-              type="button"
-              onClick={() => pick(songKey)}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
-            >
-              <RotateCcw className="size-3" /> Song key ({keyName(songKey)})
-            </button>
-          )}
-        </div>
-        <Circle selected={key} songKey={songKey} used={used} onPick={pick} />
-        <p className="px-1 text-xs leading-relaxed text-zinc-400">
-          Each step clockwise is a fifth up (one more ♯), counter-clockwise a fourth up (one more ♭). A key&apos;s chords
-          are its neighbours: in major I, IV and V outside, ii, iii and vi inside. Inside sits each key&apos;s relative
-          minor, with the same notes. Click a key to explore it.
-        </p>
-      </section>
+  const songMode = songKey ? (songKey.mode === "major" ? 0 : 5) : null;
+  const spelling = usesFlats(key) ? "flat" : "sharp";
 
-      <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
-        <h3 className="text-sm font-semibold text-zinc-100">Modes</h3>
-        <p className="mt-1 text-xs text-zinc-400">
-          The seven modes use the notes of a major scale, each starting on another of its notes. Shown on{" "}
-          <span className="text-zinc-200">{keyName({ tonic: key.tonic, mode: "major" })}</span>.
-        </p>
-        <div role="radiogroup" aria-label="Mode" className="mt-3 flex flex-wrap gap-1.5">
-          {MODES.map((m, i) => (
+  return (
+    <div className="mt-4">
+      {/* Which key to look at: the song's, or any other. */}
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+        <span>Key</span>
+        <Select
+          label="Root note"
+          align="left"
+          value={key.tonic}
+          onChange={(tonic) => pick({ tonic, mode: key.mode })}
+          options={Array.from({ length: 12 }, (_, pc) => ({ value: pc, label: noteName(pc, spelling) }))}
+        />
+        <div role="radiogroup" aria-label="Major or minor" className="flex h-9 items-center rounded-xl border border-white/10 bg-white/[0.04] p-0.5 font-medium">
+          {(["major", "minor"] as const).map((m) => (
             <button
-              key={m.name}
+              key={m}
               type="button"
               role="radio"
-              aria-checked={mode === m}
-              onClick={() => setModeIndex(i)}
-              className={`rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition ${
-                mode === m ? "border-zinc-300/60 bg-white/10 text-zinc-50" : "border-white/10 text-zinc-400 hover:border-white/25 hover:text-zinc-100"
-              }`}
+              aria-checked={key.mode === m}
+              onClick={() => pick({ tonic: key.tonic, mode: m })}
+              className={`h-full rounded-[9px] px-3 transition ${key.mode === m ? "bg-zinc-100 text-ink-950" : "text-zinc-400 hover:text-zinc-100"}`}
             >
-              {m.name}
-              {m.alias && <span className="ml-1 font-normal text-zinc-500">{m.alias}</span>}
+              {m}
             </button>
           ))}
         </div>
-        <ModeDetail tonic={key.tonic} modeIndex={MODES.indexOf(mode)} notation={notation} />
-      </section>
+        {songKey && (
+          <span className="ml-1">
+            This song: <span className="font-semibold text-zinc-200">{keyName(songKey).replace(/m$/, "")} {songKey.mode}</span>
+          </span>
+        )}
+        {picked && songKey && (
+          <button
+            type="button"
+            onClick={() => {
+              pick(songKey);
+              setModeIndex(null);
+            }}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-zinc-300 hover:bg-white/5 hover:text-zinc-50"
+          >
+            <RotateCcw className="size-3" /> Back to the song&apos;s key
+          </button>
+        )}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,380px)_1fr]">
+        <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <h3 className="text-sm font-semibold text-zinc-100">Circle of fifths</h3>
+          </div>
+          <Circle selected={key} songKey={songKey} used={used} onPick={pick} />
+          <p className="px-1 text-xs leading-relaxed text-zinc-400">
+            Each step clockwise is a fifth up (one more ♯), counter-clockwise a fourth up (one more ♭). A key&apos;s chords
+            are its neighbours: in major I, IV and V outside, ii, iii and vi inside. Inside sits each key&apos;s relative
+            minor, with the same notes. Click a key to explore it.
+          </p>
+        </section>
+
+        <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
+          <h3 className="text-sm font-semibold text-zinc-100">Modes</h3>
+          <p className="mt-1 text-xs text-zinc-400">
+            The seven modes use the notes of a major scale, each starting on another of its notes. Shown on{" "}
+            <span className="text-zinc-200">{keyName({ tonic: key.tonic, mode: "major" })}</span>.
+          </p>
+          <div role="radiogroup" aria-label="Mode" className="mt-3 flex flex-wrap gap-1.5">
+            {MODES.map((m, i) => (
+              <button
+                key={m.name}
+                type="button"
+                role="radio"
+                aria-checked={mode === m}
+                onClick={() => setModeIndex(i)}
+                className={`rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition ${
+                  mode === m ? "border-zinc-300/60 bg-white/10 text-zinc-50" : "border-white/10 text-zinc-400 hover:border-white/25 hover:text-zinc-100"
+                }`}
+              >
+                {m.name}
+                {m.alias && <span className="ml-1 font-normal text-zinc-500">{m.alias}</span>}
+                {songMode === i && (
+                  <span className="ml-1.5 rounded-md bg-guitar/15 px-1 py-px text-[10px] font-semibold text-guitar" title="The mode of the song playing">
+                    song
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          <ModeDetail tonic={key.tonic} modeIndex={MODES.indexOf(mode)} notation={notation} />
+        </section>
+      </div>
     </div>
   );
 }
@@ -196,38 +240,29 @@ function ModeDetail({ tonic, modeIndex, notation }: { tonic: number; modeIndex: 
         )}
       </p>
 
-      {/* Notes with the whole (W) and half (H) steps between them. */}
-      <div className="mt-4 flex items-center overflow-x-auto pb-1">
+      {/* The notes, with a whole or half step between each two. */}
+      <div className="mt-4 flex flex-wrap items-end gap-y-3 pb-1">
         {degrees.map((d, i) => {
           const feature = mode.feature.includes(i);
+          const color = chordColor(d.semitones);
           return (
-            <div key={i} className="flex shrink-0 items-center">
-              <div
-                className={`flex size-12 flex-col items-center justify-center rounded-full border-2 ${feature ? "border-guitar" : i === 0 ? "border-zinc-200" : "border-white/15"}`}
-                style={{ background: alpha(chordColor(d.semitones), 0.14) }}
+            <div key={i} className="flex shrink-0 items-end">
+              <Note
+                color={color}
+                ring={i === 0 ? "#fafafa" : feature ? "#fb923c" : null}
+                main={notation === "roman" ? d.degree : d.note}
+                sub={notation === "roman" ? d.note : d.degree}
                 title={feature ? `${d.degree}: what gives ${mode.name} its sound` : d.degree}
-              >
-                <span className="text-sm font-bold text-zinc-50">{notation === "roman" ? d.degree : d.note}</span>
-                <span className="text-[10px] text-zinc-400">{notation === "roman" ? d.note : d.degree}</span>
-              </div>
-              <span
-                className={`mx-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold ${steps[i] === 1 ? "bg-guitar/20 text-guitar" : "text-zinc-500"}`}
-                title={steps[i] === 1 ? "Half step: one fret" : "Whole step: two frets"}
-              >
-                {steps[i] === 1 ? "H" : "W"}
-              </span>
-              {i === 6 && (
-                <div className="flex size-12 shrink-0 flex-col items-center justify-center rounded-full border-2 border-dashed border-white/15">
-                  <span className="text-sm font-bold text-zinc-400">{notation === "roman" ? "1" : degrees[0].note}</span>
-                  <span className="text-[10px] text-zinc-500">octave</span>
-                </div>
-              )}
+              />
+              <Step half={steps[i] === 1} />
+              {i === 6 && <Note color={chordColor(0)} ring="#fafafa" dashed main={notation === "roman" ? "1" : degrees[0].note} sub="octave" />}
             </div>
           );
         })}
       </div>
       <p className="mt-1 text-xs text-zinc-500">
-        W = whole step (two frets), H = half step (one fret). Pattern: <span className="font-mono text-zinc-300">{steps.map((s) => (s === 2 ? "W" : "H")).join(" ")}</span>
+        Whole step = two frets, half step = one fret. Pattern:{" "}
+        <span className="font-mono text-zinc-300">{steps.map((s) => (s === 2 ? "W" : "H")).join(" ")}</span>
       </p>
 
       {/* The chord on each degree. */}
@@ -245,30 +280,59 @@ function ModeDetail({ tonic, modeIndex, notation }: { tonic: number; modeIndex: 
           );
         })}
       </div>
-      <Keyboard tonic={tonic} semitones={degrees.map((d) => d.semitones)} feature={mode.feature.map((i) => degrees[i].semitones)} />
+      <Keyboard tonic={tonic} semitones={degrees.map((d) => d.semitones)} />
     </div>
   );
 }
 
-/** Two octaves of piano keys with the mode's notes marked. */
-function Keyboard({ tonic, semitones, feature }: { tonic: number; semitones: number[]; feature: number[] }) {
+function Note({ color, ring, main, sub, title, dashed }: { color: string; ring: string | null; main: string; sub: string; title?: string; dashed?: boolean }) {
+  return (
+    <div
+      className={`flex size-12 shrink-0 flex-col items-center justify-center rounded-full border-2 ${dashed ? "border-dashed" : ""}`}
+      style={{ background: alpha(color, dashed ? 0.08 : 0.22), borderColor: ring ?? alpha(color, 0.9) }}
+      title={title}
+    >
+      <span className="text-sm leading-tight font-bold" style={{ color }}>
+        {main}
+      </span>
+      <span className="text-[10px] leading-tight text-zinc-300">{sub}</span>
+    </div>
+  );
+}
+
+/** An arrow to the next note, labelled whole or half step. */
+function Step({ half }: { half: boolean }) {
+  return (
+    <div className={`mx-1 flex w-11 shrink-0 flex-col items-center pb-3 ${half ? "text-guitar" : "text-zinc-500"}`} title={half ? "Half step: one fret" : "Whole step: two frets"}>
+      <span className="text-[10px] font-semibold">{half ? "half" : "whole"}</span>
+      <svg width="40" height="10" viewBox="0 0 40 10" aria-hidden>
+        <path d="M2 5 H34 M30 1 L36 5 L30 9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+}
+
+/** Two octaves of piano keys with the scale marked once, from its root up to the octave. */
+function Keyboard({ tonic, semitones }: { tonic: number; semitones: number[] }) {
   const whites = [0, 2, 4, 5, 7, 9, 11];
   const blacks = [1, 3, 6, 8, 10];
   const w = 22;
-  const notes = new Set(semitones.map((s) => mod12(tonic + s)));
-  const special = new Set(feature.map((s) => mod12(tonic + s)));
-  const mark = (pc: number, x: number, y: number) =>
-    notes.has(pc) ? (
-      <circle cx={x} cy={y} r={5} fill={pc === mod12(tonic) ? "#fafafa" : special.has(pc) ? "#fb923c" : chordColor(mod12(pc - tonic))} />
-    ) : null;
+  const root = mod12(tonic);
+  // Key index (0 to 23) of each scale note, and the octave on top.
+  const marked = new Map<number, number>([...semitones.map((s) => [root + s, s] as [number, number]), [root + 12, 0]]);
+  const mark = (index: number, x: number, y: number) => {
+    const s = marked.get(index);
+    if (s === undefined) return null;
+    return <circle cx={x} cy={y} r={5.5} fill={chordColor(s)} stroke={s === 0 ? "#fafafa" : "none"} strokeWidth={2} />;
+  };
   return (
     <svg viewBox={`0 0 ${14 * w + 2} 92`} className="mt-4 block w-full max-w-md" role="img" aria-label="The mode on a keyboard">
       {Array.from({ length: 14 }, (_, i) => {
-        const pc = whites[i % 7];
+        const index = Math.floor(i / 7) * 12 + whites[i % 7];
         return (
           <g key={`w${i}`}>
             <rect x={1 + i * w} y={1} width={w - 2} height={88} rx={3} className="fill-zinc-200" />
-            {mark(pc, 1 + i * w + (w - 2) / 2, 74)}
+            {mark(index, 1 + i * w + (w - 2) / 2, 74)}
           </g>
         );
       })}
@@ -279,7 +343,7 @@ function Keyboard({ tonic, semitones, feature }: { tonic: number; semitones: num
           return (
             <g key={`b${o}${pc}`}>
               <rect x={x} y={1} width={14} height={54} rx={2} className="fill-ink-950" />
-              {mark(pc, x + 7, 44)}
+              {mark(o * 12 + pc, x + 7, 44)}
             </g>
           );
         }),

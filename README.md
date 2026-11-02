@@ -37,13 +37,15 @@ next with a beat counter, as a chart of the whole song, and on a timeline under 
 when you want them. Write them as **chord names or roman numerals** (`Am F C G` or `vi IV I V`).
 Above the chart, **every chord of the song** shows once, in its colour, with how often it comes and **how to finger
 it**: open chords, barre chords and the usual jazz voicings for 7th chords. Pick another fingering with the arrows;
-the song remembers it, and the chord now and next show the same fingering. Every chord keeps the colour of its scale
+the song remembers it, and the chord now and next show the same fingering. Above the chart, switch between **Now &
+next** and **Two rows** of the chart that scroll along, each chord with its fingering. Every chord keeps the colour of its scale
 degree everywhere (I orange, IV cyan, V blue …).
 The **Solo** tab shows the scale of the key on a guitar or bass neck, in the five positions (or on the whole neck with
 the position framed): pentatonic, full scale or blues, labelled with note names or scale degrees, with the relative
-key (D major and B minor share their notes). Switch on **Solo along** to improvise over the changes: every
-chord gets the colour of its scale degree, two rows of the chart scroll along with the bar being played lit up, and
-the chord's root (or all its notes) lights up on the neck, with the next chord fading in during the bar before it.
+key (D major and B minor share their notes). Every note shows in the colour of its scale degree; position 1 of
+the minor scale (position 5 in major, the same box) is chosen first. Switch on **Solo along** to improvise over the
+changes: the chord's root (or all its notes) lights up on the neck, with the next chord fading in during the bar
+before it, and the two rows of the chart scroll along above.
 The **Theory** tab has an interactive circle of fifths with the song's key and its chords, and the seven modes with
 their whole and half steps, the note that gives each its sound, and the chord on every degree.
 

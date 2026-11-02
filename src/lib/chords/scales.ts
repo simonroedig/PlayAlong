@@ -16,6 +16,18 @@ export const OPEN_STRINGS: Record<Instrument, number[]> = {
 };
 
 export const MAX_FRET = 17;
+
+/**
+ * Positions counted from the minor root position (the relative minor's
+ * position 1, where most guitarists start) to the key's own numbering:
+ * in minor the same, in major that box is position 5.
+ */
+export function keyPosition(fromMinorRoot: number, mode: Key["mode"]): number {
+  return mode === "minor" ? fromMinorRoot : (fromMinorRoot + 4) % 5;
+}
+export function minorRootPosition(position: number, mode: Key["mode"]): number {
+  return mode === "minor" ? position : (position + 1) % 5;
+}
 /** Positions reaching above this fret are shown an octave lower. */
 const HIGHEST_POSITION_FRET = 15;
 
@@ -62,6 +74,9 @@ export function scaleNeck(key: Key, kind: ScaleKind, instrument: Instrument, max
 
 /** Pentatonic box `position` (0 to 4): two notes per string, starting on the lowest string. */
 function box(key: Key, instrument: Instrument, position: number): { string: number; pitch: number }[] {
+  // A major key's boxes are its relative minor's, one further: major position 5 is minor position 1
+  // (from the 6th degree), so the pair always sits on the same frets.
+  if (key.mode === "major") return box({ tonic: mod12(key.tonic + 9), mode: "minor" }, instrument, (position + 1) % 5);
   const open = OPEN_STRINGS[instrument];
   const pent = TONES[key.mode].pentatonic;
   const rootFret = mod12(key.tonic - open[0]);

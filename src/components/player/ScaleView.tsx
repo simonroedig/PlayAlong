@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MAX_FRET, OPEN_STRINGS, positionSpan, scaleName, scaleNeck, scalePosition, type FretNote, type Instrument, type ScaleKind } from "@/lib/chords/scales";
-import { degreeColor } from "@/lib/chords/colors";
+import { Toggle } from "@/components/ui/Toggle";
+import { keyPosition, MAX_FRET, minorRootPosition, OPEN_STRINGS, positionSpan, scaleName, scaleNeck, scalePosition, type FretNote, type Instrument, type ScaleKind } from "@/lib/chords/scales";
+import { chordColor, degreeColor } from "@/lib/chords/colors";
 import type { DisplayChord } from "@/lib/chords/sheet";
 import { chordTones, degreeName, keyName, noteName, relativeKey, usesFlats, type ChordNotation, type Key } from "@/lib/chords/vocabulary";
 
@@ -22,23 +23,27 @@ interface Prefs {
   instrument: Instrument;
   /** Solo along: light up only each chord's root, or all its notes. */
   chordNotes: ChordNotes;
-  /** 0 to 4, or null for none (then the whole neck shows, unframed). */
-  position: number | null;
+  /**
+   * The position counted from the minor root position (0 to 4), so the same box stays chosen for a
+   * major key and its relative minor: by default position 1 in minor, position 5 in major. Null for
+   * none (then the whole neck shows, unframed).
+   */
+  minorPosition: number | null;
   /** Show the scale on the whole neck, with the position still framed. */
   wholeNeck: boolean;
 }
 
 function readPrefs(): Prefs {
-  const fallback: Prefs = { kind: "pentatonic", instrument: "guitar", chordNotes: "root", position: 0, wholeNeck: false };
+  const fallback: Prefs = { kind: "pentatonic", instrument: "guitar", chordNotes: "root", minorPosition: 0, wholeNeck: false };
   try {
-    const stored = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "null") as Partial<Prefs> | null;
+    const stored = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "null") as (Partial<Prefs> & { position?: number | null }) | null;
     if (!stored) return fallback;
+    const p = stored.minorPosition;
     return {
       kind: stored.kind === "scale" || stored.kind === "blues" ? stored.kind : "pentatonic",
       instrument: stored.instrument === "bass" ? "bass" : "guitar",
       chordNotes: stored.chordNotes === "all" ? "all" : "root",
-      position:
-        stored.position === null ? null : typeof stored.position === "number" && stored.position >= 0 && stored.position <= 4 ? stored.position : 0,
+      minorPosition: p === null ? null : typeof p === "number" && p >= 0 && p <= 4 ? p : 0,
       // Earlier versions had "whole neck" as a position (-1).
       wholeNeck: stored.wholeNeck === true || stored.position === -1,
     };
@@ -95,7 +100,6 @@ export function ScaleView({
   shift,
   notation,
   playMode,
-  onPlayMode,
   playing,
 }: {
   soundingKey: Key | null;
@@ -105,7 +109,6 @@ export function ScaleView({
   shift: number;
   notation: ChordNotation;
   playMode: boolean;
-  onPlayMode: (on: boolean) => void;
   playing: PlayAlongState;
 }) {
   const [prefs, setPrefsState] = useState<Prefs>(readPrefs);
@@ -123,9 +126,11 @@ export function ScaleView({
   // The neck is drawn for the shapes played (with capo or down-tuning), like the chord names.
   const key = shapeKey;
   const neck = useMemo(() => (key ? scaleNeck(key, prefs.kind, prefs.instrument) : []), [key, prefs.kind, prefs.instrument]);
+  // The chosen position in this key's own numbering.
+  const chosen = key && prefs.minorPosition !== null ? keyPosition(prefs.minorPosition, key.mode) : null;
   const position = useMemo(
-    () => (key && prefs.position !== null ? scalePosition(key, prefs.kind, prefs.instrument, prefs.position) : null),
-    [key, prefs.kind, prefs.instrument, prefs.position],
+    () => (key && chosen !== null ? scalePosition(key, prefs.kind, prefs.instrument, chosen) : null),
+    [key, prefs.kind, prefs.instrument, chosen],
   );
 
   const current = playMode ? onNeck(playing.current, shift, prefs.chordNotes) : null;
@@ -150,6 +155,8 @@ export function ScaleView({
   // Without a position there is nothing to frame: the whole neck shows.
   const wholeNeck = prefs.wholeNeck || position === null;
   const relative = relativeKey(key);
+  // The position that is the relative key's position 1: 5 in major (the minor root position), 2 in minor.
+  const linked = key.mode === "major" ? 4 : 1;
 
   return (
     <div className="mt-4">
@@ -162,28 +169,13 @@ export function ScaleView({
             </span>
           </p>
           <p className="text-xs text-zinc-500">
-            {span && prefs.position !== null ? `Position ${prefs.position + 1} · frets ${span[0]} to ${span[1]}` : "The whole neck"}
+            {span && chosen !== null ? `Position ${chosen + 1} · frets ${span[0]} to ${span[1]}` : "The whole neck"}
             {span && prefs.wholeNeck ? " · whole neck" : ""}
             {capo > 0 ? ` · frets counted from the capo` : ""}
             {key.tonic !== soundingKey.tonic ? ` · sounds as ${keyName(soundingKey)}` : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={playMode}
-            onClick={() => onPlayMode(!playMode)}
-            title="Colour every chord, light it up on the neck while the song plays, and read ahead in two rows of the chart"
-            className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition ${
-              playMode ? "border-guitar/60 bg-guitar/15 text-zinc-50" : "border-white/10 bg-white/[0.04] text-zinc-300 hover:text-zinc-50"
-            }`}
-          >
-            <span className={`relative h-4 w-7 rounded-full transition ${playMode ? "bg-guitar" : "bg-white/15"}`}>
-              <span className={`absolute top-0.5 size-3 rounded-full bg-white transition-all ${playMode ? "left-3.5" : "left-0.5"}`} />
-            </span>
-            Solo along
-          </button>
           {/* Always in place (dimmed while Solo along is off), so nothing jumps when it is switched on. */}
           <div className={`transition-opacity ${playMode ? "" : "pointer-events-none opacity-35"}`} aria-hidden={!playMode}>
             <Segmented
@@ -220,37 +212,37 @@ export function ScaleView({
             key={p}
             type="button"
             role="radio"
-            aria-checked={prefs.position === p}
+            aria-checked={chosen === p}
             // A second click turns the position off: then the whole neck shows without a frame.
-            onClick={() => setPrefs({ position: prefs.position === p ? null : p })}
-            title={p === 0 ? "Position 1 starts on the root note on the lowest string" : undefined}
+            onClick={() => setPrefs({ minorPosition: chosen === p ? null : minorRootPosition(p, key.mode) })}
+            title={
+              p === 0
+                ? "Position 1 starts on the root note on the lowest string"
+                : p === linked
+                  ? `The same box as ${keyName(relative.key)} position 1: the relative ${relative.key.mode} key's root position`
+                  : undefined
+            }
             className={`h-9 rounded-xl border px-3 text-xs font-semibold transition ${
-              prefs.position === p ? "border-guitar/60 bg-guitar/15 text-zinc-50" : "border-white/10 text-zinc-400 hover:border-white/25 hover:text-zinc-100"
+              chosen === p ? "border-guitar/60 bg-guitar/15 text-zinc-50" : "border-white/10 text-zinc-400 hover:border-white/25 hover:text-zinc-100"
             }`}
           >
-            {`Position ${p + 1}`}
+            Position {p + 1}
+            {p === linked && <span className="ml-1 font-normal text-zinc-400">(= {keyName(relative.key)} position 1)</span>}
           </button>
         ))}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={wholeNeck}
-          disabled={prefs.position === null}
-          onClick={() => setPrefs({ wholeNeck: !prefs.wholeNeck })}
+        <Toggle
+          size="sm"
+          on={wholeNeck}
+          disabled={chosen === null}
+          onToggle={() => setPrefs({ wholeNeck: !prefs.wholeNeck })}
           title={
-            prefs.position === null
+            chosen === null
               ? "No position chosen, so the whole neck shows. Pick a position to frame it."
               : "Show the scale on the whole neck; the chosen position stays framed"
           }
-          className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition disabled:cursor-default ${
-            wholeNeck ? "border-zinc-300/60 bg-white/10 text-zinc-50" : "border-white/10 text-zinc-400 hover:border-white/25 hover:text-zinc-100"
-          }`}
         >
-          <span className={`relative h-4 w-7 rounded-full transition ${wholeNeck ? "bg-zinc-200" : "bg-white/15"}`}>
-            <span className={`absolute top-0.5 size-3 rounded-full transition-all ${wholeNeck ? "left-3.5 bg-ink-950" : "left-0.5 bg-white"}`} />
-          </span>
           Whole neck
-        </button>
+        </Toggle>
       </div>
 
       <Fretboard
@@ -297,15 +289,13 @@ export function ScaleView({
       ) : (
         <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
           <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block size-3 rounded-full bg-guitar" /> root note
+            <span className="inline-block size-3 rounded-full bg-guitar ring-2 ring-zinc-50" /> root note
           </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block size-3 rounded-full bg-zinc-200" /> {position ? "in this position" : "scale note"}
-          </span>
+          <span>Each note in the colour of its degree, like the chords.</span>
           <span className={`inline-flex items-center gap-1.5 ${position ? "" : "hidden"}`}>
             {wholeNeck ? (
               <>
-                <span className="inline-block size-3 rounded-full bg-zinc-200/50" /> outside the position
+                <span className="inline-block size-3 rounded-full bg-zinc-200/40" /> dimmed: outside the position
               </>
             ) : (
               <>
@@ -353,7 +343,9 @@ function Segmented<T extends string>({
 const FRET_W = 52;
 const OPEN_W = 50;
 const STRING_GAP = 28;
-const PAD_Y = 20;
+const PAD_Y = 28;
+/** Space left and right of the neck, so it sits centred. */
+const PAD_X = 18;
 
 function Fretboard({
   instrument,
@@ -375,7 +367,8 @@ function Fretboard({
   play: { current: ChordOnNeck | null; next: ChordOnNeck | null; fade: number } | null;
 }) {
   const strings = OPEN_STRINGS[instrument].length;
-  const width = OPEN_W + MAX_FRET * FRET_W + 8;
+  const neckEnd = OPEN_W + MAX_FRET * FRET_W;
+  const width = neckEnd + 2 * PAD_X;
   const height = PAD_Y * 2 + (strings - 1) * STRING_GAP + 18;
   // Lowest string at the bottom.
   const y = (string: number) => PAD_Y + (strings - 1 - string) * STRING_GAP;
@@ -407,7 +400,7 @@ function Fretboard({
   useEffect(() => {
     const el = scroller.current;
     if (!el || el.scrollWidth <= el.clientWidth) return;
-    const center = span ? (x(Math.max(from, 0)) + x(to)) / 2 : 0;
+    const center = span ? PAD_X + (x(Math.max(from, 0)) + x(to)) / 2 : 0;
     el.scrollTo({ left: Math.max(0, center - el.clientWidth / 2), behavior: "smooth" });
     // x depends only on constants
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -415,13 +408,14 @@ function Fretboard({
 
   return (
     <div ref={scroller} className="mt-3 overflow-x-auto rounded-2xl border border-white/10 bg-ink-950/60">
-      <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="block" role="img" aria-label="Scale on the fretboard">
+      <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="mx-auto block" role="img" aria-label="Scale on the fretboard">
+        <g transform={`translate(${PAD_X} 0)`}>
         {span && (
           <rect
             x={span[0] === 0 ? 14 : OPEN_W + (span[0] - 1) * FRET_W}
-            y={top - 14}
+            y={top - 20}
             width={(span[0] === 0 ? OPEN_W - 14 : 0) + (span[1] - Math.max(span[0], 1) + 1) * FRET_W}
-            height={bottom - top + 28}
+            height={bottom - top + 40}
             rx={10}
             className="fill-guitar/[0.07] stroke-guitar/40"
             strokeWidth={1}
@@ -440,7 +434,7 @@ function Fretboard({
         ))}
         {/* Strings */}
         {Array.from({ length: strings }, (_, s) => (
-          <line key={s} x1={OPEN_W} x2={width} y1={y(s)} y2={y(s)} className="stroke-zinc-500" strokeWidth={(instrument === "bass" ? 2.4 : 1.8) - s * 0.2} />
+          <line key={s} x1={OPEN_W} x2={neckEnd} y1={y(s)} y2={y(s)} className="stroke-zinc-500" strokeWidth={(instrument === "bass" ? 2.4 : 1.8) - s * 0.2} />
         ))}
         {/* Fret numbers */}
         {Array.from({ length: MAX_FRET }, (_, i) => i + 1).map((f) => (
@@ -459,7 +453,9 @@ function Fretboard({
                 cx={x(n.fret)}
                 cy={y(n.string)}
                 r={4.5}
-                className={n.degree === 0 ? "fill-ink-950 stroke-guitar/70" : "fill-ink-950 stroke-zinc-400/70"}
+                className="fill-ink-950"
+                stroke={chordColor(n.degree)}
+                strokeOpacity={0.7}
                 strokeWidth={1.5}
               />
             ))}
@@ -473,8 +469,16 @@ function Fretboard({
           if (!play) {
             const root = n.degree === 0;
             return (
+              // Every note in the colour of its scale degree, as the chords; the root ringed in white.
               <g key={`n${id}`} opacity={away ? 0.5 : 1}>
-                <circle cx={x(n.fret)} cy={y(n.string)} r={11.5} className={root ? "fill-guitar" : "fill-zinc-200"} />
+                <circle
+                  cx={x(n.fret)}
+                  cy={y(n.string)}
+                  r={root ? 10.25 : 11.5}
+                  fill={chordColor(n.degree)}
+                  stroke={root ? "#fafafa" : "none"}
+                  strokeWidth={2.5}
+                />
                 <text x={x(n.fret)} y={y(n.string)} dy="0.35em" textAnchor="middle" className={`fill-ink-950 font-semibold ${size}`}>
                   {text}
                 </text>
@@ -507,16 +511,18 @@ function Fretboard({
                 cx={x(n.fret)}
                 cy={y(n.string)}
                 r={11.5}
-                fill="#3f3f46"
+                fill="#27272a"
                 stroke={isRoot ? "#fafafa" : outside ? "#a1a1aa" : "none"}
                 strokeWidth={isRoot ? 2.5 : 1.5}
                 strokeDasharray={outside && !isRoot ? "3 2" : undefined}
               />
+              {/* The note's own colour, dimmed: Solo along keeps the colours and lights up what is played. */}
+              <circle cx={x(n.fret)} cy={y(n.string)} r={isRoot ? 10.25 : 11.5} fill={chordColor(n.degree)} opacity={0.3} />
               <circle
                 cx={x(n.fret)}
                 cy={y(n.string)}
                 r={isRoot ? 10.25 : 11.5}
-                style={{ fill: now?.color ?? "#3f3f46", opacity: strength, transition: "opacity 250ms, fill 250ms" }}
+                style={{ fill: now?.color ?? "#27272a", opacity: strength, transition: "opacity 250ms, fill 250ms" }}
               />
               <text
                 x={x(n.fret)}
@@ -532,10 +538,11 @@ function Fretboard({
         })}
         {/* String names */}
         {STRING_NAMES[instrument].map((name, s) => (
-          <text key={name + s} x={4} y={y(s)} dy="0.35em" className="fill-zinc-600 font-mono text-[10px]">
+          <text key={name + s} x={-6} y={y(s)} dy="0.35em" className="fill-zinc-600 font-mono text-[10px]">
             {name}
           </text>
         ))}
+        </g>
       </svg>
     </div>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { positionSpan, scaleNeck, scalePosition } from "./scales";
+import { keyPosition, minorRootPosition, positionSpan, scaleNeck, scalePosition } from "./scales";
 import type { Key } from "./vocabulary";
 
 const Am: Key = { tonic: 9, mode: "minor" };
@@ -24,6 +24,16 @@ describe("scale positions", () => {
     expect(positionSpan(am)).toEqual([5, 9]);
     const c = scalePosition(C, "scale", "guitar", 0);
     expect(shape(c)).toEqual([[7, 8, 10], [7, 8, 10], [7, 9, 10], [7, 9, 10], [8, 10], [7, 8, 10]]);
+  });
+
+  it("puts a major key's position 5 on its relative minor's position 1", () => {
+    const g = { tonic: 7, mode: "major" as const };
+    const em = { tonic: 4, mode: "minor" as const };
+    expect(shape(scalePosition(g, "pentatonic", "guitar", 4))).toEqual(shape(scalePosition(em, "pentatonic", "guitar", 0)));
+    expect(shape(scalePosition(C, "pentatonic", "guitar", 4))).toEqual(shape(scalePosition(Am, "pentatonic", "guitar", 0)));
+    expect(keyPosition(0, "major")).toBe(4);
+    expect(minorRootPosition(4, "major")).toBe(0);
+    expect(keyPosition(2, "minor")).toBe(2);
   });
 
   it("adds the blue note", () => {

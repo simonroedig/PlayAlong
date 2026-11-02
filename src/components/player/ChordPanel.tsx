@@ -13,6 +13,7 @@ import { alpha, chordColor } from "@/lib/chords/colors";
 import { pickVoicing, type Voicing } from "@/lib/chords/voicings";
 import { KeyChangeTag, SongHeading, SongSwitcher, clock } from "@/components/player/SongParts";
 import { Select } from "@/components/ui/Select";
+import { Toggle } from "@/components/ui/Toggle";
 import { StemProgress } from "@/components/ui/StemProgress";
 import { STEM_INFO } from "@/lib/mixer";
 import type { ChordState } from "@/hooks/useChords";
@@ -60,6 +61,17 @@ interface Props {
 type Tab = "chart" | "lyrics" | "scales" | "theory";
 const TAB_KEY = "playalong:sheet-tab";
 const PLAY_MODE_KEY = "playalong:play-along-colors";
+
+type Preview = "now" | "rows";
+const PREVIEW_KEY = "playalong:preview";
+
+function readPreview(): Preview {
+  try {
+    return localStorage.getItem(PREVIEW_KEY) === "rows" ? "rows" : "now";
+  } catch {
+    return "now";
+  }
+}
 
 function readPlayMode(): boolean {
   try {
@@ -231,8 +243,19 @@ function ChordChart({
   const [tab, setTabState] = useState<Tab>(readTab);
   // Solo along: every chord in its colour, its notes lit on the neck, and two rows of the chart to read ahead.
   const [playMode, setPlayModeState] = useState(readPlayMode);
+  // The box above the tabs: "now and next", or two rows of the chart to read ahead (Solo along picks the rows).
+  const [preview, setPreviewState] = useState<Preview>(readPreview);
+  const setPreview = (p: Preview) => {
+    setPreviewState(p);
+    try {
+      localStorage.setItem(PREVIEW_KEY, p);
+    } catch {
+      // storage blocked
+    }
+  };
   const setPlayMode = (on: boolean) => {
     setPlayModeState(on);
+    if (on) setPreview("rows");
     try {
       localStorage.setItem(PLAY_MODE_KEY, on ? "1" : "0");
     } catch {
@@ -335,8 +358,29 @@ function ChordChart({
 
       <ChordOverview chords={chords} part={partIndex} shift={shift} shapeKey={shapeKey} notation={view.notation} voicings={voicings} />
 
-      {/* Solo along changes this box only in the Solo tab; the other tabs keep "now and next". */}
-      {playMode && tab === "scales" ? (
+      <div className="mt-4 flex justify-end">
+        <div role="radiogroup" aria-label="Preview" className="flex h-8 items-center rounded-xl border border-white/10 bg-white/[0.04] p-0.5 text-xs font-medium">
+          {(
+            [
+              ["now", "Now & next", "The chord now and the next one, big"],
+              ["rows", "Two rows", "Two rows of the chart with the fingerings, scrolling along"],
+            ] as const
+          ).map(([id, label, hint]) => (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={preview === id}
+              title={hint}
+              onClick={() => setPreview(id)}
+              className={`h-full rounded-[9px] px-3 transition ${preview === id ? "bg-zinc-100 text-ink-950" : "text-zinc-400 hover:text-zinc-100"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {preview === "rows" ? (
         <SoloRows
           bars={bars}
           chords={chords}
@@ -344,10 +388,11 @@ function ChordChart({
           currentChord={position.chord}
           beat={beatNow}
           onSeek={onSeek}
-          fingering={fingering(current)}
+          fingerOf={fingering}
         />
       ) : (
         <NowNext
+          className="mt-2"
           current={current}
           next={next}
           beatsToNext={beatsToNext}
@@ -392,6 +437,16 @@ function ChordChart({
           ))}
         </div>
         {(tab === "chart" || tab === "lyrics") && <FollowToggle follow={follow} onToggle={toggleFollow} />}
+        {tab === "scales" && (
+          <Toggle
+            on={playMode}
+            onToggle={() => setPlayMode(!playMode)}
+            icon={<Guitar className="size-4" />}
+            title="Light up each chord on the neck while the song plays, with two rows of the chart to read ahead"
+          >
+            Solo along
+          </Toggle>
+        )}
       </div>
       {tab === "theory" ? (
         <TheoryView songKey={partKey} notation={view.notation} used={usedChords} />
@@ -403,7 +458,6 @@ function ChordChart({
           shift={shift}
           notation={view.notation}
           playMode={playMode}
-          onPlayMode={setPlayMode}
           playing={{ current, next, beatsToNext, beatsPerBar: part.beatsPerBar }}
         />
       ) : tab === "chart" ? (
@@ -472,22 +526,14 @@ function upperIndex(starts: number[], beat: number): number {
 
 export function FollowToggle({ follow, onToggle }: { follow: boolean; onToggle: () => void }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={follow}
-      onClick={onToggle}
+    <Toggle
+      on={follow}
+      onToggle={onToggle}
+      icon={<MoveDown className="size-4" />}
       title={follow ? "The chart scrolls along with the music. Click to stop" : "Scroll the chart along with the music"}
-      className={`inline-flex h-11 items-center gap-2.5 rounded-2xl border px-4 text-sm font-semibold transition ${
-        follow ? "border-white/15 bg-white/[0.07] text-zinc-50" : "border-white/10 text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
-      }`}
     >
-      <MoveDown className="size-4" />
       Follow the music
-      <span className={`h-5 w-9 rounded-full p-0.5 transition ${follow ? "bg-guitar" : "bg-white/15"}`} aria-hidden>
-        <span className={`block size-4 rounded-full bg-white shadow transition ${follow ? "translate-x-4" : ""}`} />
-      </span>
-    </button>
+    </Toggle>
   );
 }
 
@@ -507,6 +553,7 @@ function StepButton({ label, onClick, disabled, children }: { label: string; onC
 }
 
 function NowNext({
+  className,
   current,
   next,
   beatsToNext,
@@ -524,10 +571,11 @@ function NowNext({
   bar: number | null;
   fingering: { voicing: Voicing; color: string } | null;
   nextFingering: { voicing: Voicing; color: string } | null;
+  className?: string;
 }) {
   const counting = beatsToNext !== null && beatsToNext > 0 && beatsToNext <= beatsPerBar;
   return (
-    <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-4 sm:grid-cols-[auto_1fr_auto_auto] sm:items-center sm:gap-8 sm:p-5">
+    <div className={`${className ?? "mt-4"} grid gap-3 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-4 sm:grid-cols-[auto_1fr_auto_auto] sm:items-center sm:gap-8 sm:p-5`}>
       <div className="min-w-0">
         <div className="text-[11px] font-semibold tracking-[0.16em] text-zinc-400 uppercase">Now</div>
         <div
@@ -678,7 +726,7 @@ const ChordSheet = memo(function ChordSheet({
                   >
                     <span
                       className={`min-w-0 truncate pr-[0.2em] font-semibold tracking-tight ${narrow ? "text-sm sm:text-base" : "text-base sm:text-lg"} ${
-                        playing ? "underline decoration-2 underline-offset-4" : ""
+""
                       } ${cell.uncertain ? "italic" : ""}`}
                       title={cell.uncertain ? "Uncertain, check by ear" : undefined}
                       style={{ color: colors[cell.chordIndex], opacity: cell.continued && !playing ? 0.55 : 1 }}
