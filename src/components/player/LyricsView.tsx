@@ -12,6 +12,7 @@ import type { LyricsState } from "@/hooks/useLyrics";
 import { useSheetPlayhead } from "@/hooks/useSheetPlayhead";
 import type { LoopRegion, PlayerEngine } from "@/lib/audio/engine";
 import type { SongPart } from "@/lib/chords/analyze";
+import { chordColor } from "@/lib/chords/colors";
 import { partAt } from "@/lib/chords/sheet";
 import type { DisplayChord } from "@/lib/chords/sheet";
 import { LYRICS_LANGUAGES, LYRICS_MODEL_LABEL, languageName } from "@/lib/lyrics/model";
@@ -147,6 +148,8 @@ function LyricsSheet({
   onLoop,
 }: Props & { lyrics: Extract<LyricsState, { status: "ready" }>["lyrics"] }) {
   const sheet = useMemo(() => lyricsSheet(lyrics.lines, chords, duration), [lyrics, chords, duration]);
+  // Each chord in the colour of its scale degree, as everywhere in the player.
+  const colors = useMemo(() => (chords ?? []).map((c) => chordColor(c.degree)), [chords]);
   const languages = useMemo(() => lyricsLanguages(lyrics.lines, lyrics.language), [lyrics]);
   const position = useSheetPlayhead(engine, sheet);
   const { ref, onUserScroll, onScroll, away, recenter } = useFollowScroll<HTMLDivElement>(
@@ -197,6 +200,7 @@ function LyricsSheet({
                 sung={here ? position.sung : -1}
                 next={here ? position.next : -1}
                 currentChord={currentChord}
+                colors={colors}
                 onClick={click}
               />
             </Fragment>
@@ -240,9 +244,11 @@ const SheetRow = memo(function SheetRow({
   sung,
   next,
   currentChord,
+  colors,
   onClick,
 }: {
   line: SheetLine;
+  colors: readonly string[];
   index: number;
   active: boolean;
   past: boolean;
@@ -271,7 +277,8 @@ const SheetRow = memo(function SheetRow({
           {line.chords.map((c) => (
             <span
               key={c.index}
-              className={`pr-[0.15em] font-semibold ${c.index === currentChord ? "text-guitar" : "text-orange-200/90"} ${c.uncertain ? "italic" : ""}`}
+              className={`pr-[0.15em] font-semibold ${c.index === currentChord ? "underline decoration-2 underline-offset-4" : ""} ${c.uncertain ? "italic" : ""}`}
+              style={{ color: colors[c.index] }}
             >
               {c.label}
             </span>
@@ -290,9 +297,10 @@ const SheetRow = memo(function SheetRow({
                 {w.chords.map((c) => (
                   <span
                     key={c.index}
-                    className={`mr-1.5 pr-[0.1em] ${c.index === currentChord && active ? "text-guitar" : "text-orange-200/90"} ${
+                    className={`mr-1.5 pr-[0.1em] ${c.index === currentChord && active ? "underline decoration-2 underline-offset-4" : ""} ${
                       c.uncertain ? "italic" : ""
                     }`}
+                    style={{ color: colors[c.index] }}
                   >
                     {c.label}
                   </span>

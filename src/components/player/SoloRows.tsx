@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useSyncExternalStore } from "react";
+import { ChordDiagram } from "@/components/player/ChordDiagram";
 import { alpha, chordColor } from "@/lib/chords/colors";
+import type { Voicing } from "@/lib/chords/voicings";
 import type { Bar, DisplayChord } from "@/lib/chords/sheet";
 
 /**
@@ -36,6 +38,7 @@ export function SoloRows({
   currentChord,
   beat,
   onSeek,
+  fingering,
 }: {
   bars: Bar[];
   chords: DisplayChord[];
@@ -44,6 +47,8 @@ export function SoloRows({
   /** Beat within the bar, -1 before the music starts. */
   beat: number;
   onSeek: (seconds: number) => void;
+  /** How to finger the chord now, shown beside the rows. */
+  fingering: { voicing: Voicing; color: string } | null;
 }) {
   const columns = useColumns();
   // Rows as in the chart: every song starts a new row.
@@ -62,9 +67,9 @@ export function SoloRows({
   );
 
   return (
-    <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-2">
+    <div className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-2">
       {/* Exactly two rows visible; the rest slides past outside this frame. */}
-      <div className="overflow-hidden rounded-xl" style={{ height: 2 * ROW_HEIGHT + GAP }}>
+      <div className="min-w-0 flex-1 overflow-hidden rounded-xl" style={{ height: 2 * ROW_HEIGHT + GAP }}>
         <div className="flex flex-col transition-transform duration-500 ease-out" style={{ gap: GAP, transform: `translateY(-${currentRow * (ROW_HEIGHT + GAP)}px)` }}>
           {rows.map((row, r) => (
             <div key={bars[row[0]].startBeat} className="grid gap-1.5" style={{ height: ROW_HEIGHT, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
@@ -75,6 +80,11 @@ export function SoloRows({
           ))}
         </div>
       </div>
+      {fingering && (
+        <div className="hidden shrink-0 pr-2 sm:block">
+          <ChordDiagram voicing={fingering.voicing} color={fingering.color} />
+        </div>
+      )}
     </div>
   );
 }

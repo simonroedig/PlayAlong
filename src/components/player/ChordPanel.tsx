@@ -1,11 +1,16 @@
 "use client";
 
-import { Grid3x3, Guitar, ListMusic, Loader2, Minus, MoveDown, Plus, RotateCcw, TextQuote, TriangleAlert } from "lucide-react";
+import { GraduationCap, Grid3x3, Guitar, ListMusic, Loader2, Minus, MoveDown, Plus, RotateCcw, TextQuote, TriangleAlert } from "lucide-react";
 import { Fragment, memo, useMemo, useRef, useState } from "react";
 import { BackToNow } from "@/components/player/BackToNow";
 import { LyricsView } from "@/components/player/LyricsView";
+import { ChordDiagram } from "@/components/player/ChordDiagram";
+import { ChordOverview, type VoicingChoice } from "@/components/player/ChordOverview";
 import { ScaleView } from "@/components/player/ScaleView";
+import { TheoryView } from "@/components/player/TheoryView";
 import { SoloRows } from "@/components/player/SoloRows";
+import { alpha, chordColor } from "@/lib/chords/colors";
+import { pickVoicing, type Voicing } from "@/lib/chords/voicings";
 import { KeyChangeTag, SongHeading, SongSwitcher, clock } from "@/components/player/SongParts";
 import { Select } from "@/components/ui/Select";
 import { StemProgress } from "@/components/ui/StemProgress";
@@ -30,7 +35,7 @@ import {
   type ChordView,
   type DisplayChord,
 } from "@/lib/chords/sheet";
-import { keyName, relativeKey, type ChordNotation } from "@/lib/chords/vocabulary";
+import { FAMILY, keyName, relativeKey, type ChordNotation } from "@/lib/chords/vocabulary";
 
 interface Props {
   engine: PlayerEngine | null;
@@ -48,9 +53,11 @@ interface Props {
   lyricsAuto: boolean;
   onLyricsAuto: (auto: boolean) => void;
   onTranscribe: (language: string | null) => void;
+  /** Fingerings chosen for this song's chords. */
+  voicings: VoicingChoice;
 }
 
-type Tab = "chart" | "lyrics" | "scales";
+type Tab = "chart" | "lyrics" | "scales" | "theory";
 const TAB_KEY = "playalong:sheet-tab";
 const PLAY_MODE_KEY = "playalong:play-along-colors";
 
@@ -65,7 +72,7 @@ function readPlayMode(): boolean {
 function readTab(): Tab {
   try {
     const stored = localStorage.getItem(TAB_KEY);
-    return stored === "lyrics" || stored === "scales" ? stored : "chart";
+    return stored === "lyrics" || stored === "scales" || stored === "theory" ? stored : "chart";
   } catch {
     return "chart";
   }
@@ -191,6 +198,7 @@ function ChordChart({
   lyricsAuto,
   onLyricsAuto,
   onTranscribe,
+  voicings,
 }: Props & { analysis: ChordAnalysis; chords: DisplayChord[] }) {
   const position = useChordPlayhead(engine, analysis, chords);
   const bars = useMemo(() => chordBars(analysis, chords, duration), [analysis, chords, duration]);
@@ -208,6 +216,12 @@ function ChordChart({
   const partKey = keyAt(part, now);
   const nextChange = part.keyChanges.find((c) => c.start > now) ?? null;
 
+  // Every chord in the colour of its scale degree: chart, now and next, lyrics, the band under the waveform.
+  const colors = useMemo(() => chords.map((c) => chordColor(c.degree)), [chords]);
+  const usedChords = useMemo(
+    () => chords.filter((c) => c.part === partIndex && c.root !== null).map((c) => ({ root: c.root!, minor: FAMILY[c.quality] === "min" })),
+    [chords, partIndex],
+  );
   const [follow, setFollow] = useState(readFollowPreference);
   const toggleFollow = () =>
     setFollow((f) => {
@@ -235,6 +249,11 @@ function ChordChart({
   };
 
   const shift = shapeShift(view);
+  // How to finger a chord: the voicing picked for this song, or the recommended one.
+  const fingering = (chord: DisplayChord | null) =>
+    chord && chord.root !== null
+      ? { voicing: pickVoicing(chord.root + shift, chord.quality, voicings.choice).voicing, color: chordColor(chord.degree) }
+      : null;
   const soundingKey = partKey ? keyName(partKey) : null;
   const shapeKey = displayKey(partKey, view);
   const cents = analysis.tuningCents;
@@ -314,8 +333,19 @@ function ChordChart({
         )}
       </p>
 
-      {playMode ? (
-        <SoloRows bars={bars} chords={chords} currentBar={currentBar} currentChord={position.chord} beat={beatNow} onSeek={onSeek} />
+      <ChordOverview chords={chords} part={partIndex} shift={shift} shapeKey={shapeKey} notation={view.notation} voicings={voicings} />
+
+      {/* Solo along changes this box only in the Solo tab; the other tabs keep "now and next". */}
+      {playMode && tab === "scales" ? (
+        <SoloRows
+          bars={bars}
+          chords={chords}
+          currentBar={currentBar}
+          currentChord={position.chord}
+          beat={beatNow}
+          onSeek={onSeek}
+          fingering={fingering(current)}
+        />
       ) : (
         <NowNext
           current={current}
@@ -324,16 +354,23 @@ function ChordChart({
           beat={beatNow}
           beatsPerBar={part.beatsPerBar}
           bar={currentBar >= 0 ? bars[currentBar].number : null}
+          fingering={fingering(current)}
+          nextFingering={fingering(next)}
         />
       )}
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
-        <div role="tablist" aria-label="Show" className="flex rounded-2xl border border-white/10 bg-white/[0.04] p-1 text-sm font-semibold">
+        <div
+          role="tablist"
+          aria-label="Show"
+          className="grid w-full grid-cols-4 rounded-2xl border border-white/10 bg-white/[0.04] p-1 text-sm font-semibold sm:flex sm:w-auto"
+        >
           {(
             [
               ["chart", "Chord chart", "Chart", Grid3x3],
               ["lyrics", "Chords + lyrics", "Lyrics", TextQuote],
               ["scales", "Solo", "Solo", Guitar],
+              ["theory", "Theory", "Theory", GraduationCap],
             ] as const
           ).map(([id, label, short, Icon]) => (
             <button
@@ -343,20 +380,22 @@ function ChordChart({
               aria-selected={tab === id}
               aria-label={label}
               onClick={() => setTab(id)}
-              className={`inline-flex h-10 items-center gap-2 rounded-xl px-3 transition sm:px-4 ${
+              className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl px-1 transition sm:px-4 ${
                 tab === id ? "bg-zinc-50 text-ink-950 shadow" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
               }`}
             >
-              <Icon className="size-4" />
+              <Icon className="hidden size-4 sm:block" />
               <span className="sm:hidden">{short}</span>
               <span className="hidden sm:inline">{label}</span>
               {id === "lyrics" && lyrics.status === "running" && <Loader2 className="size-3.5 animate-spin" />}
             </button>
           ))}
         </div>
-        {tab !== "scales" && <FollowToggle follow={follow} onToggle={toggleFollow} />}
+        {(tab === "chart" || tab === "lyrics") && <FollowToggle follow={follow} onToggle={toggleFollow} />}
       </div>
-      {tab === "scales" ? (
+      {tab === "theory" ? (
+        <TheoryView songKey={partKey} notation={view.notation} used={usedChords} />
+      ) : tab === "scales" ? (
         <ScaleView
           soundingKey={partKey}
           shapeKey={shapeKey}
@@ -374,6 +413,7 @@ function ChordChart({
             parts={parts}
             currentBar={currentBar}
             currentChord={position.chord}
+            colors={colors}
             follow={follow}
             loop={loop}
             onSeek={onSeek}
@@ -473,6 +513,8 @@ function NowNext({
   beat,
   beatsPerBar,
   bar,
+  fingering,
+  nextFingering,
 }: {
   current: DisplayChord | null;
   next: DisplayChord | null;
@@ -480,10 +522,12 @@ function NowNext({
   beat: number;
   beatsPerBar: number;
   bar: number | null;
+  fingering: { voicing: Voicing; color: string } | null;
+  nextFingering: { voicing: Voicing; color: string } | null;
 }) {
   const counting = beatsToNext !== null && beatsToNext > 0 && beatsToNext <= beatsPerBar;
   return (
-    <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-4 sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-8 sm:p-5">
+    <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-4 sm:grid-cols-[auto_1fr_auto_auto] sm:items-center sm:gap-8 sm:p-5">
       <div className="min-w-0">
         <div className="text-[11px] font-semibold tracking-[0.16em] text-zinc-400 uppercase">Now</div>
         <div
@@ -492,6 +536,7 @@ function NowNext({
           }`}
           aria-live="off"
           title={current?.uncertain ? "Uncertain, check by ear" : undefined}
+          style={current ? { color: chordColor(current.degree) } : undefined}
         >
           {current?.label ?? "·"}
         </div>
@@ -500,7 +545,10 @@ function NowNext({
         <div className="text-[11px] font-semibold tracking-[0.16em] text-zinc-400 uppercase">
           Next{beatsToNext !== null && beatsToNext > 0 ? ` · in ${beatsToNext} ${beatsToNext === 1 ? "beat" : "beats"}` : ""}
         </div>
-        <div className={`pr-[0.15em] text-3xl font-semibold whitespace-nowrap text-zinc-300 sm:text-4xl ${next?.uncertain ? "italic" : ""}`}>
+        <div
+          className={`pr-[0.15em] text-3xl font-semibold whitespace-nowrap text-zinc-300 sm:text-4xl ${next?.uncertain ? "italic" : ""}`}
+          style={next ? { color: chordColor(next.degree) } : undefined}
+        >
           {next?.label ?? "·"}
         </div>
         {counting && (
@@ -508,6 +556,15 @@ function NowNext({
             {Array.from({ length: beatsToNext }, (_, i) => (
               <span key={i} className="h-1 w-5 rounded-full bg-zinc-400/60" />
             ))}
+          </div>
+        )}
+      </div>
+      {/* How to play them: the chord now, and smaller the one coming. */}
+      <div className="flex items-end gap-3">
+        {fingering && <ChordDiagram voicing={fingering.voicing} color={fingering.color} />}
+        {nextFingering && (
+          <div className="opacity-50">
+            <ChordDiagram voicing={nextFingering.voicing} color={nextFingering.color} size="sm" />
           </div>
         )}
       </div>
@@ -533,6 +590,7 @@ const ChordSheet = memo(function ChordSheet({
   parts,
   currentBar,
   currentChord,
+  colors,
   follow,
   loop,
   onSeek,
@@ -542,6 +600,8 @@ const ChordSheet = memo(function ChordSheet({
   parts: SongPart[];
   currentBar: number;
   currentChord: number;
+  /** The colour of each chord (by scale degree). */
+  colors: readonly string[];
   follow: boolean;
   loop: LoopRegion | null;
   onSeek: (seconds: number) => void;
@@ -586,9 +646,19 @@ const ChordSheet = memo(function ChordSheet({
                 }
               }}
               title={`Bar ${bar.number}: click to jump, Shift+click to loop from the last clicked bar`}
+              // The bar being played lights up in the colour of its chord.
+              style={
+                active && currentChord >= 0
+                  ? {
+                      borderColor: alpha(colors[currentChord], 0.8),
+                      background: alpha(colors[currentChord], 0.1),
+                      boxShadow: `0 0 0 1px ${alpha(colors[currentChord], 0.35)}`,
+                    }
+                  : undefined
+              }
               className={`relative flex h-14 items-stretch overflow-hidden rounded-xl border text-left transition ${
                 active
-                  ? "border-guitar/70 bg-guitar/[0.08] shadow-[0_0_0_1px_rgba(251,146,60,0.35)]"
+                  ? "border-zinc-300/60 bg-white/[0.06]"
                   : looped
                     ? "border-white/25 bg-white/[0.05] hover:bg-white/[0.07]"
                     : "border-white/5 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]"
@@ -608,9 +678,10 @@ const ChordSheet = memo(function ChordSheet({
                   >
                     <span
                       className={`min-w-0 truncate pr-[0.2em] font-semibold tracking-tight ${narrow ? "text-sm sm:text-base" : "text-base sm:text-lg"} ${
-                        playing ? "text-guitar" : cell.continued ? "text-zinc-400" : "text-zinc-100"
+                        playing ? "underline decoration-2 underline-offset-4" : ""
                       } ${cell.uncertain ? "italic" : ""}`}
                       title={cell.uncertain ? "Uncertain, check by ear" : undefined}
+                      style={{ color: colors[cell.chordIndex], opacity: cell.continued && !playing ? 0.55 : 1 }}
                     >
                       {cell.label}
                     </span>

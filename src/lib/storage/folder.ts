@@ -257,8 +257,8 @@ export function syncFolder(): Promise<void> {
         if (song.status !== "ready") continue;
         if (!entry || stamp(song) > stamp(entry.header.song)) await write(dir, song.id);
         else if (stamp(entry.header.song) > stamp(song)) {
-          const { title, artist, chords, chordView, lyrics, updatedAt } = entry.header.song;
-          await updateSong(song.id, { title, artist, chords, chordView, lyrics, updatedAt }, { fromFolder: true });
+          const { title, artist, chords, chordView, lyrics, voicings, updatedAt } = entry.header.song;
+          await updateSong(song.id, { title, artist, chords, chordView, lyrics, voicings, updatedAt }, { fromFolder: true });
         }
       }
       readyState({ busy: null, syncedAt: Date.now() });

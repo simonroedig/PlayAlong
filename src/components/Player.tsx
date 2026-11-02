@@ -91,6 +91,8 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
   const [showKeys, setShowKeys] = useState(false);
   const closeKeys = useCallback(() => setShowKeys(false), []);
   const [chordView, setChordView] = useState<ChordView>(() => initialChordView(song));
+  // Fingerings picked for this song's chords, kept with the song.
+  const [voicingChoice, setVoicingChoice] = useState<Record<string, number>>(() => song.voicings ?? {});
   const { state: chordState, reanalyze } = useChords(song, stems, frames);
   // Lyrics wait for the chords, so the two analyses don't compete for the CPU.
   const lyrics = useLyrics(song, stems, frames, chordState.status !== "running");
@@ -160,6 +162,17 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
     },
     [song.id],
   );
+
+  const chooseVoicing = useCallback(
+    (key: string, index: number) =>
+      setVoicingChoice((current) => {
+        const next = { ...current, [key]: index };
+        void updateSong(song.id, { voicings: next });
+        return next;
+      }),
+    [song.id],
+  );
+  const voicings = useMemo(() => ({ choice: voicingChoice, onChoice: chooseVoicing }), [voicingChoice, chooseVoicing]);
 
   const loopRegion = useCallback(
     (region: LoopRegion) => {
@@ -367,6 +380,7 @@ export function Player({ song, stems }: { song: SongRecord; stems: Int16Array[] 
         lyricsAuto={lyrics.auto}
         onLyricsAuto={lyrics.setAuto}
         onTranscribe={lyrics.transcribe}
+        voicings={voicings}
       />
 
       <section>

@@ -33,6 +33,8 @@ export interface SongRecord {
   chordView?: Pick<ChordView, "capo" | "tuneDown">;
   /** Lyrics transcribed from the vocal stem, with word timings. */
   lyrics?: LyricsAnalysis;
+  /** Fingerings chosen for this song's chords ("shape root:quality" to the index in voicingsFor). */
+  voicings?: Record<string, number>;
 }
 
 const DB_NAME = "playalong";

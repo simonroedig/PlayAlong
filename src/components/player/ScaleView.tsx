@@ -22,8 +22,8 @@ interface Prefs {
   instrument: Instrument;
   /** Solo along: light up only each chord's root, or all its notes. */
   chordNotes: ChordNotes;
-  /** 0 to 4. */
-  position: number;
+  /** 0 to 4, or null for none (then the whole neck shows, unframed). */
+  position: number | null;
   /** Show the scale on the whole neck, with the position still framed. */
   wholeNeck: boolean;
 }
@@ -37,7 +37,8 @@ function readPrefs(): Prefs {
       kind: stored.kind === "scale" || stored.kind === "blues" ? stored.kind : "pentatonic",
       instrument: stored.instrument === "bass" ? "bass" : "guitar",
       chordNotes: stored.chordNotes === "all" ? "all" : "root",
-      position: typeof stored.position === "number" && stored.position >= 0 && stored.position <= 4 ? stored.position : 0,
+      position:
+        stored.position === null ? null : typeof stored.position === "number" && stored.position >= 0 && stored.position <= 4 ? stored.position : 0,
       // Earlier versions had "whole neck" as a position (-1).
       wholeNeck: stored.wholeNeck === true || stored.position === -1,
     };
@@ -123,7 +124,7 @@ export function ScaleView({
   const key = shapeKey;
   const neck = useMemo(() => (key ? scaleNeck(key, prefs.kind, prefs.instrument) : []), [key, prefs.kind, prefs.instrument]);
   const position = useMemo(
-    () => (key ? scalePosition(key, prefs.kind, prefs.instrument, prefs.position) : null),
+    () => (key && prefs.position !== null ? scalePosition(key, prefs.kind, prefs.instrument, prefs.position) : null),
     [key, prefs.kind, prefs.instrument, prefs.position],
   );
 
@@ -146,6 +147,8 @@ export function ScaleView({
     return MINOR_DEGREES[key.mode].has(n.degree) ? numeral.toLowerCase() : numeral;
   };
   const span = position ? positionSpan(position) : null;
+  // Without a position there is nothing to frame: the whole neck shows.
+  const wholeNeck = prefs.wholeNeck || position === null;
   const relative = relativeKey(key);
 
   return (
@@ -159,8 +162,8 @@ export function ScaleView({
             </span>
           </p>
           <p className="text-xs text-zinc-500">
-            {span ? `Position ${prefs.position + 1} · frets ${span[0]} to ${span[1]}` : ""}
-            {prefs.wholeNeck ? " · whole neck" : ""}
+            {span && prefs.position !== null ? `Position ${prefs.position + 1} · frets ${span[0]} to ${span[1]}` : "The whole neck"}
+            {span && prefs.wholeNeck ? " · whole neck" : ""}
             {capo > 0 ? ` · frets counted from the capo` : ""}
             {key.tonic !== soundingKey.tonic ? ` · sounds as ${keyName(soundingKey)}` : ""}
           </p>
@@ -181,7 +184,8 @@ export function ScaleView({
             </span>
             Solo along
           </button>
-          {playMode && (
+          {/* Always in place (dimmed while Solo along is off), so nothing jumps when it is switched on. */}
+          <div className={`transition-opacity ${playMode ? "" : "pointer-events-none opacity-35"}`} aria-hidden={!playMode}>
             <Segmented
               label="Chord notes"
               value={prefs.chordNotes}
@@ -191,7 +195,7 @@ export function ScaleView({
               ]}
               onChange={(chordNotes) => setPrefs({ chordNotes })}
             />
-          )}
+          </div>
           <Segmented
             label="Scale"
             value={prefs.kind}
@@ -217,7 +221,8 @@ export function ScaleView({
             type="button"
             role="radio"
             aria-checked={prefs.position === p}
-            onClick={() => setPrefs({ position: p })}
+            // A second click turns the position off: then the whole neck shows without a frame.
+            onClick={() => setPrefs({ position: prefs.position === p ? null : p })}
             title={p === 0 ? "Position 1 starts on the root note on the lowest string" : undefined}
             className={`h-9 rounded-xl border px-3 text-xs font-semibold transition ${
               prefs.position === p ? "border-guitar/60 bg-guitar/15 text-zinc-50" : "border-white/10 text-zinc-400 hover:border-white/25 hover:text-zinc-100"
@@ -229,15 +234,20 @@ export function ScaleView({
         <button
           type="button"
           role="switch"
-          aria-checked={prefs.wholeNeck}
+          aria-checked={wholeNeck}
+          disabled={prefs.position === null}
           onClick={() => setPrefs({ wholeNeck: !prefs.wholeNeck })}
-          title="Show the scale on the whole neck; the chosen position stays framed"
-          className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition ${
-            prefs.wholeNeck ? "border-zinc-300/60 bg-white/10 text-zinc-50" : "border-white/10 text-zinc-400 hover:border-white/25 hover:text-zinc-100"
+          title={
+            prefs.position === null
+              ? "No position chosen, so the whole neck shows. Pick a position to frame it."
+              : "Show the scale on the whole neck; the chosen position stays framed"
+          }
+          className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition disabled:cursor-default ${
+            wholeNeck ? "border-zinc-300/60 bg-white/10 text-zinc-50" : "border-white/10 text-zinc-400 hover:border-white/25 hover:text-zinc-100"
           }`}
         >
-          <span className={`relative h-4 w-7 rounded-full transition ${prefs.wholeNeck ? "bg-zinc-200" : "bg-white/15"}`}>
-            <span className={`absolute top-0.5 size-3 rounded-full transition-all ${prefs.wholeNeck ? "left-3.5 bg-ink-950" : "left-0.5 bg-white"}`} />
+          <span className={`relative h-4 w-7 rounded-full transition ${wholeNeck ? "bg-zinc-200" : "bg-white/15"}`}>
+            <span className={`absolute top-0.5 size-3 rounded-full transition-all ${wholeNeck ? "left-3.5 bg-ink-950" : "left-0.5 bg-white"}`} />
           </span>
           Whole neck
         </button>
@@ -247,7 +257,7 @@ export function ScaleView({
         instrument={prefs.instrument}
         neck={neck}
         position={position}
-        wholeNeck={prefs.wholeNeck}
+        wholeNeck={wholeNeck}
         span={span}
         label={label}
         tonic={key.tonic}
@@ -290,10 +300,10 @@ export function ScaleView({
             <span className="inline-block size-3 rounded-full bg-guitar" /> root note
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block size-3 rounded-full bg-zinc-200" /> in this position
+            <span className="inline-block size-3 rounded-full bg-zinc-200" /> {position ? "in this position" : "scale note"}
           </span>
-          <span className="inline-flex items-center gap-1.5">
-            {prefs.wholeNeck ? (
+          <span className={`inline-flex items-center gap-1.5 ${position ? "" : "hidden"}`}>
+            {wholeNeck ? (
               <>
                 <span className="inline-block size-3 rounded-full bg-zinc-200/50" /> outside the position
               </>
